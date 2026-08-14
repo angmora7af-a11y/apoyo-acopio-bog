@@ -1,0 +1,399 @@
+// =============================================================
+//  Ayuda Logística BOG — MongoDB Schema
+//  Formato: DBML (dbml.org) adaptado a colecciones MongoDB
+//  Convenciones:
+//    - _id       → ObjectId (generado por MongoDB)
+//    - *_id      → ObjectId de referencia ($lookup / $in)
+//    - *_nombre  → snapshot desnormalizado del nombre legible
+//    - codigo    → ID legible (D-001, E-001, R-001) para UI
+// =============================================================
+
+Project ayuda_logistica_bog {
+  database_type: 'MongoDB'
+  Note: '''
+    Sistema de gestión humanitaria para centros de acopio y despacho logístico.
+
+    COLECCIONES: voluntarios · donaciones · envios · recepciones
+
+    PATRONES APLICADOS:
+      - Embedding  → categorias_kits (sub-documento inmutable dentro de cada doc)
+      - Snapshot   → nombres y códigos legibles desnormalizados para evitar $lookup
+      - References → donaciones_ids[] en envios · envio_id en recepciones
+      - Multikey   → índice automático en arrays (donaciones_ids)
+      - Compound   → (estado, fecha_hora) como par de consulta más frecuente
+
+    FLUJO DE ESTADOS:
+      Donación:  pendiente → listo → en_transito → entregado
+      Envío:     en_transito → entregado
+      Recepción: (documento final — no cambia de estado)
+
+    TRANSACCIONES:
+      Al confirmar una recepción se actualiza en una sola sesión:
+        envios.estado         → "entregado"
+        donaciones[].estado   → "entregado"  (para cada id en donaciones_ids)
+      Usar session + multi-document transaction de MongoDB 4.0+.
+  '''
+}
+
+
+// =============================================================
+//  ENUMS
+// =============================================================
+
+Enum estado_donacion {
+  pendiente    [note: 'Registrada, aún no lista para despacho']
+  listo        [note: 'Empacada y lista para ser incluida en un envío']
+  en_transito  [note: 'Asociada a un envío activo']
+  entregado    [note: 'Recepción confirmada en destino']
+}
+
+Enum estado_envio {
+  en_transito  [note: 'Despachado, en camino']
+  entregado    [note: 'Recepcionado en destino']
+}
+
+Enum tipo_transporte {
+  carro
+  camion
+  avion_vuelo
+  barco
+  otro
+}
+
+Enum rol_usuario {
+  voluntario
+  administrador
+}
+
+
+// =============================================================
+//  EMBEDDED DOCUMENT — Categorías de kits
+//  No es una colección independiente.
+//  Se incrusta dentro de: donaciones · envios · recepciones
+// =============================================================
+
+Table categorias_kits [note: 'Sub-documento embebido — nunca colección independiente'] {
+  aseo         int [default: 0, note: 'Aseo / Cuidado personal e higiene']
+  alimentos    int [default: 0, note: 'Alimentos no perecederos']
+  mascotas     int [default: 0, note: 'Alimentos para mascotas']
+  medicamentos int [default: 0, note: 'Medicamentos']
+  insumos      int [default: 0, note: 'Insumos médicos y hospitalarios']
+  rescate      int [default: 0, note: 'Suministros de rescate']
+  refugio      int [default: 0, note: 'Material de refugio (carpas, cobijas, etc.)']
+  ropa         int [default: 0, note: 'Ropa y calzado']
+}
+
+
+// =============================================================
+//  COLECCIÓN: voluntarios
+// =============================================================
+
+Table voluntarios {
+  _id          ObjectId  [pk, note: 'Generado por MongoDB']
+  nombre       varchar   [not null]
+  documento    varchar   [not null, unique, note: 'Cédula o documento de identidad — clave de acceso']
+  rol          rol_usuario [not null, default: 'voluntario']
+  created_at   timestamp [default: `now()`]
+
+  indexes {
+    documento              [unique, name: 'uq_voluntarios_documento',
+                            note: 'Búsqueda O(1) en login — campo de acceso principal']
+    rol                    [name: 'idx_voluntarios_rol',
+                            note: 'Filtrar administradores para vistas de métricas']
+    (documento, rol)       [name: 'idx_voluntarios_doc_rol',
+                            note: 'Cubierto (covered query) en autenticación: evita fetch del doc completo']
+    created_at             [name: 'idx_voluntarios_created_at']
+  }
+
+  Note: '''
+    Acceso sin contraseña — documento actúa como identificador único de sesión.
+    No almacenar contraseñas ni tokens aquí en el prototipo.
+    En producción: añadir campo pin_hash (bcrypt) y ultima_sesion.
+  '''
+}
+
+
+// =============================================================
+//  COLECCIÓN: donaciones
+// =============================================================
+
+Table donaciones {
+  _id               ObjectId      [pk]
+  codigo            varchar        [not null, unique,
+                                   note: 'ID legible D-001. Generado con counter o nanoid en app.']
+
+  // Cabecera
+  acopio            varchar        [not null, note: 'Nombre del centro de acopio']
+  responsable_id    ObjectId       [not null]
+  responsable_nombre varchar       [not null,
+                                   note: 'Snapshot — evita $lookup en listados. Actualizar si cambia el nombre.']
+  fecha             date           [not null]
+  hora              varchar        [note: 'HH:MM en string — MongoDB no tiene tipo time nativo']
+  fecha_hora        timestamp      [not null,
+                                   note: 'Timestamp completo (fecha + hora). Usar para rangos y ordenamiento.']
+  destino           varchar        [note: 'Ciudad/zona de destino — opcional al registrar']
+  comentarios       varchar
+
+  // Inventario (sub-documento embebido)
+  categorias        categorias_kits [not null,
+                                    note: 'Embedding: el inventario es parte inseparable de la donación']
+  total_cajas       int             [not null, default: 0,
+                                    note: 'Desnormalizado = SUM(categorias.*). Recalcular al modificar categorias.']
+
+  // Control de flujo
+  estado            estado_donacion [not null, default: 'pendiente']
+
+  // Auditoría
+  created_at        timestamp      [default: `now()`]
+  updated_at        timestamp      [default: `now()`]
+
+  indexes {
+    codigo                    [unique, name: 'uq_donaciones_codigo']
+    estado                    [name: 'idx_donaciones_estado',
+                               note: 'Consulta más frecuente: donaciones "listo" para el modal de envíos']
+    fecha_hora                [name: 'idx_donaciones_fecha_hora']
+    responsable_id            [name: 'idx_donaciones_responsable',
+                               note: 'Historial de un voluntario']
+    acopio                    [name: 'idx_donaciones_acopio']
+    (estado, fecha_hora)      [name: 'idx_donaciones_estado_fecha',
+                               note: 'COMPUESTO PRINCIPAL — lista de donaciones por estado ordenada por fecha. ESR rule: Equality → Sort → Range']
+    (acopio, estado)          [name: 'idx_donaciones_acopio_estado',
+                               note: 'Dashboard por centro de acopio: ¿cuántas listas en Suba?']
+    (estado, total_cajas)     [name: 'idx_donaciones_estado_cajas',
+                               note: 'Métricas: total de cajas disponibles por estado']
+  }
+
+  Note: '''
+    EMBEDDING vs REFERENCING:
+      categorias → embedding (1:1, se lee siempre con el documento, nunca independiente)
+      responsable → referencia + snapshot (el voluntario puede tener muchas donaciones)
+
+    INMUTABILIDAD PARCIAL:
+      Una vez estado = "en_transito" o "entregado", no permitir edición de categorias.
+      Validar en capa de aplicación o con $jsonSchema validator en MongoDB.
+
+    INDICES SPARSE:
+      destino es opcional — considerar { sparse: true } si los queries siempre filtran
+      por destino cuando está presente, para no indexar nulls.
+
+    UPDATED_AT:
+      Actualizar con { $set: { updated_at: new Date() } } en cada write.
+      Útil para sincronización offline y auditoría de cambios de estado.
+  '''
+}
+
+
+// =============================================================
+//  COLECCIÓN: envios
+// =============================================================
+
+Table envios {
+  _id                ObjectId      [pk]
+  codigo             varchar        [not null, unique, note: 'ID legible E-001']
+
+  // Transporte
+  tipo_transporte    tipo_transporte [not null]
+  capacidad_ton      decimal        [note: 'Capacidad en toneladas — puede ser nulo si no aplica']
+  empresa            varchar        [note: 'Empresa o aliado logístico — opcional']
+  placa              varchar        [note: 'Placa / matrícula del vehículo o aeronave']
+
+  // Responsable del transporte (datos del transportador, NO del voluntario)
+  responsable_nombre varchar        [not null, note: 'Nombre del responsable del medio de transporte']
+  contacto           varchar        [note: 'Teléfono del responsable del transporte']
+
+  // Ruta y tiempo
+  fecha_hora         timestamp      [not null, note: 'Fecha y hora de despacho']
+  ciudad_origen      varchar        [not null]
+  ciudad_destino     varchar        [not null]
+
+  // Carga asociada — referencias + snapshot agregado
+  donaciones_ids     "ObjectId[]"   [not null,
+                                    note: 'Array de referencias a donaciones. Multikey index automático en MongoDB.']
+  carga_categorias   categorias_kits [not null,
+                                     note: 'Snapshot: suma de categorias de todas las donaciones al momento del despacho']
+  total_cajas        int             [not null, default: 0,
+                                     note: 'Desnormalizado — suma de total_cajas de las donaciones asociadas']
+
+  // Control de flujo
+  estado             estado_envio   [not null, default: 'en_transito']
+
+  // Auditoría
+  creado_por_id      ObjectId
+  creado_por_nombre  varchar        [note: 'Snapshot del nombre del voluntario']
+  created_at         timestamp      [default: `now()`]
+  updated_at         timestamp      [default: `now()`]
+
+  indexes {
+    codigo                       [unique, name: 'uq_envios_codigo']
+    estado                       [name: 'idx_envios_estado',
+                                  note: 'Filtrar en_transito para el modal de recepciones']
+    fecha_hora                   [name: 'idx_envios_fecha_hora']
+    donaciones_ids               [name: 'idx_envios_donaciones_ids',
+                                  note: 'MULTIKEY — MongoDB lo indexa por cada elemento del array. Permite: find({donaciones_ids: donacionId})']
+    ciudad_destino               [name: 'idx_envios_destino']
+    (estado, fecha_hora)         [name: 'idx_envios_estado_fecha',
+                                  note: 'COMPUESTO PRINCIPAL — envíos en tránsito ordenados por fecha']
+    (ciudad_origen, ciudad_destino) [name: 'idx_envios_ruta',
+                                     note: 'Métricas de rutas activas y análisis de trazabilidad']
+    (estado, ciudad_destino)     [name: 'idx_envios_estado_destino',
+                                  note: 'Dashboard por destino: ¿qué llega a Mocoa?']
+  }
+
+  Note: '''
+    ARRAY DE REFERENCIAS (donaciones_ids):
+      El multikey index de MongoDB permite queries eficientes:
+        db.envios.find({ donaciones_ids: { $in: [id1, id2] } })
+      Límite práctico: no superar ~500 donaciones por envío para evitar docs >16MB.
+      Si se requieren más, usar sub-colección envio_donaciones con pattern bucket.
+
+    SNAPSHOT DE CARGA (carga_categorias):
+      Se calcula y persiste al crear el envío. No se recalcula dinámicamente.
+      Si se modifica la lista de donaciones (raro), recalcular y actualizar.
+
+    TRANSACCIÓN AL DESPACHAR:
+      1. Insert envios (nuevo documento)
+      2. UpdateMany donaciones: { _id: { $in: donaciones_ids } } → estado: "en_transito"
+      Usar session para garantizar atomicidad.
+  '''
+}
+
+
+// =============================================================
+//  COLECCIÓN: recepciones
+// =============================================================
+
+Table recepciones {
+  _id                ObjectId       [pk]
+  codigo             varchar         [not null, unique, note: 'ID legible R-001']
+
+  // Receptor en destino
+  receptor_nombre    varchar         [not null, note: 'Nombre de quien recibe físicamente la carga']
+
+  // Referencia al envío que se cierra
+  envio_id           ObjectId        [not null,
+                                     note: 'Referencia directa — un envío solo puede tener UNA recepción (índice único)']
+  envio_codigo       varchar         [not null, note: 'Snapshot del código legible del envío']
+
+  // Snapshot de carga confirmada (inmutable)
+  carga_categorias   categorias_kits [note: 'Copia exacta del snapshot del envío al momento de la recepción']
+  total_cajas        int             [note: 'Desnormalizado desde el envío']
+
+  // Verificación del transporte (puede diferir del envío si hubo cambio de vehículo)
+  tipo_transporte    tipo_transporte
+  capacidad_ton      decimal
+  empresa            varchar         [note: 'Puede diferir si hubo cambio logístico en ruta']
+  responsable_nombre varchar
+  contacto           varchar
+  placa              varchar         [note: 'Verificar que coincide con el envío — registrar diferencia si no']
+
+  // Tiempo y ruta de llegada
+  fecha_hora         timestamp       [not null, note: 'Fecha y hora real de llegada']
+  ciudad_origen      varchar
+  ciudad_destino     varchar
+
+  // Auditoría
+  creado_por_id      ObjectId
+  creado_por_nombre  varchar
+  created_at         timestamp       [default: `now()`]
+
+  indexes {
+    codigo            [unique, name: 'uq_recepciones_codigo']
+    envio_id          [unique, name: 'uq_recepciones_envio_id',
+                       note: 'CRÍTICO — garantiza que un envío no se recepcione dos veces']
+    fecha_hora        [name: 'idx_recepciones_fecha_hora']
+    ciudad_destino    [name: 'idx_recepciones_destino']
+    receptor_nombre   [name: 'idx_recepciones_receptor',
+                       note: 'Historial de recepciones por receptor — considerar text index si es búsqueda libre']
+    (ciudad_origen, ciudad_destino) [name: 'idx_recepciones_ruta',
+                                     note: 'Reportes de trazabilidad de ruta completa origen-destino']
+  }
+
+  Note: '''
+    DOCUMENTO FINAL DEL CICLO LOGÍSTICO:
+      La recepción cierra el ciclo. No tiene estado propio — su existencia
+      confirma la entrega. El estado de envio y donaciones se actualiza externamente.
+
+    ÚNICA POR ENVÍO:
+      El índice único en envio_id previene doble confirmación.
+      En la app: verificar antes de mostrar el botón "Confirmar" si ya existe
+      una recepción para ese envio_id.
+
+    INMUTABILIDAD:
+      Una vez guardada, carga_categorias NO debe modificarse.
+      Implementar con permisos en capa de aplicación o roles en MongoDB Atlas.
+
+    TRANSACCIÓN AL CONFIRMAR RECEPCIÓN:
+      1. Insert recepciones (nuevo documento)
+      2. Update envios: { _id: envio_id } → estado: "entregado"
+      3. UpdateMany donaciones: { _id: { $in: envio.donaciones_ids } } → estado: "entregado"
+      Las 3 operaciones en una sola sesión (session.withTransaction).
+
+    DIVERGENCIA DE DATOS DEL TRANSPORTE:
+      Los campos de verificación (placa, responsable, etc.) pueden diferir
+      de los del envío si hubo cambio de vehículo en ruta.
+      Conservar ambos registros para auditoría.
+  '''
+}
+
+
+// =============================================================
+//  REFERENCIAS ENTRE COLECCIONES (para diagrama ER)
+//  Definidas aquí de forma centralizada — NO repetir inline en columnas.
+//  Operadores: >  many-to-one  |  <  one-to-many  |  -  one-to-one
+// =============================================================
+
+// Muchas donaciones → un voluntario las registra
+Ref ref_donaciones_responsable: donaciones.responsable_id > voluntarios._id
+
+// Muchos envíos → un voluntario los registra
+Ref ref_envios_creador: envios.creado_por_id > voluntarios._id
+
+// Muchas recepciones → un voluntario las registra
+Ref ref_recepciones_creador: recepciones.creado_por_id > voluntarios._id
+
+// Una recepción cierra exactamente un envío (1:1)
+Ref ref_recepciones_envio: recepciones.envio_id - envios._id
+
+// Nota: envios.donaciones_ids es un array de ObjectId (multikey index en Mongo).
+// DBML no soporta refs de array nativas — la relación está documentada en la nota del campo.
+
+
+// =============================================================
+//  NOTAS GENERALES DE IMPLEMENTACIÓN MONGODB
+// =============================================================
+
+// VALIDATOR ($jsonSchema) recomendado para donaciones:
+// db.createCollection("donaciones", {
+//   validator: {
+//     $jsonSchema: {
+//       bsonType: "object",
+//       required: ["codigo","acopio","responsable_id","responsable_nombre",
+//                  "fecha_hora","categorias","total_cajas","estado"],
+//       properties: {
+//         estado: { enum: ["pendiente","listo","en_transito","entregado"] },
+//         total_cajas: { bsonType: "int", minimum: 0 },
+//         categorias: {
+//           bsonType: "object",
+//           properties: {
+//             aseo:         { bsonType: "int", minimum: 0 },
+//             alimentos:    { bsonType: "int", minimum: 0 },
+//             mascotas:     { bsonType: "int", minimum: 0 },
+//             medicamentos: { bsonType: "int", minimum: 0 },
+//             insumos:      { bsonType: "int", minimum: 0 },
+//             rescate:      { bsonType: "int", minimum: 0 },
+//             refugio:      { bsonType: "int", minimum: 0 },
+//             ropa:         { bsonType: "int", minimum: 0 }
+//           }
+//         }
+//       }
+//     }
+//   }
+// })
+
+// ÍNDICES DE CREACIÓN (Mongoose / MongoDB Shell):
+// donaciones.createIndex({ estado: 1, fecha_hora: -1 })  // más usado
+// envios.createIndex({ donaciones_ids: 1 })               // multikey automático
+// recepciones.createIndex({ envio_id: 1 }, { unique: true })
+
+// WRITE CONCERN recomendado para operaciones críticas (recepciones):
+// { w: "majority", j: true }

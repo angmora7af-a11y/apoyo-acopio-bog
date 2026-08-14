@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ayuda Logística BOG — Prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #2563EB;
+    --primary-dark: #1D4ED8;
+    --primary-light: #EFF6FF;
+    --success: #16A34A;
+    --success-light: #F0FDF4;
+    --warning: #D97706;
+    --warning-light: #FFFBEB;
+    --danger: #DC2626;
+    --neutral-50: #F9FAFB;
+    --neutral-100: #F3F4F6;
+    --neutral-200: #E5E7EB;
+    --neutral-300: #D1D5DB;
+    --neutral-400: #9CA3AF;
+    --neutral-500: #6B7280;
+    --neutral-700: #374151;
+    --neutral-900: #111827;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+    --shadow-md: 0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: var(--neutral-100); color: var(--neutral-900); min-height: 100vh; }
+
+  /* NAV */
+  .topbar { background: #fff; border-bottom: 1px solid var(--neutral-200); padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .topbar-brand { font-size: 15px; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+  .topbar-brand span { font-size: 18px; }
+  .topbar-user { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--neutral-500); }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+  .btn-logout { font-size: 12px; color: var(--neutral-400); background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+  .btn-logout:hover { color: var(--danger); background: #FEF2F2; }
+
+  /* LAYOUT */
+  .app { display: none; }
+  .app.active { display: block; }
+  .page { display: none; padding: 24px 20px; max-width: 760px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* BOTTOM NAV */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--neutral-200); display: flex; z-index: 100; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 0; cursor: pointer; font-size: 10px; color: var(--neutral-400); border: none; background: none; transition: color .15s; }
+  .nav-item.active { color: var(--primary); }
+  .nav-item svg { width: 22px; height: 22px; }
+  .nav-label { font-size: 10px; font-weight: 500; }
+  .page-wrap { padding-bottom: 70px; }
+
+  /* LOGIN */
+  #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--neutral-100); }
+  .login-card { background: #fff; border-radius: 16px; padding: 40px 32px; width: 100%; max-width: 420px; box-shadow: var(--shadow-md); }
+  .login-logo { text-align: center; margin-bottom: 28px; }
+  .login-logo .icon { font-size: 48px; display: block; }
+  .login-logo h1 { font-size: 20px; font-weight: 700; color: var(--neutral-900); margin-top: 8px; }
+  .login-logo p { font-size: 13px; color: var(--neutral-500); margin-top: 4px; }
+
+  /* CARDS */
+  .card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--neutral-700); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+  /* FORMS */
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--neutral-700); margin-bottom: 6px; }
+  input[type="text"], input[type="number"], input[type="date"], input[type="time"], input[type="tel"], select, textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--neutral-300); border-radius: 8px;
+    font-size: 14px; font-family: inherit; color: var(--neutral-900); background: #fff;
+    transition: border-color .15s, box-shadow .15s; outline: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+  textarea { resize: vertical; min-height: 72px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .info-field { padding: 10px 12px; border: 1px solid var(--neutral-200); border-radius: 8px; font-size: 14px; background: var(--neutral-50); color: var(--neutral-500); }
+
+  /* COUNTERS — híbrido: input editable + botones +/- */
+  .category-grid { display: grid; gap: 10px; }
+  .cat-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--neutral-50); border-radius: 8px; border: 1px solid var(--neutral-200); }
+  .cat-icon { font-size: 18px; width: 28px; text-align: center; flex-shrink: 0; }
+  .cat-name { flex: 1; font-size: 13px; font-weight: 500; color: var(--neutral-700); line-height: 1.3; }
+  .counter { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .counter-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--neutral-300); background: #fff; font-size: 17px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--neutral-700); transition: all .1s; flex-shrink: 0; }
+  .counter-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .counter-btn.plus { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+  .counter-input {
+    width: 52px; text-align: center; font-size: 15px; font-weight: 600;
+    border: 1px solid var(--neutral-300); border-radius: 6px; padding: 4px 2px;
+    -moz-appearance: textfield; background: #fff;
+  }
+  .counter-input::-webkit-outer-spin-button,
+  .counter-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .counter-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(37,99,235,.1); outline: none; }
+  .total-bar { background: var(--primary-light); border: 1px solid #BFDBFE; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+  .total-bar span { font-size: 13px; font-weight: 500; color: var(--primary-dark); }
+  .total-bar strong { font-size: 20px; font-weight: 700; color: var(--primary); }
+
+  /* BUTTONS */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: all .15s; width: 100%; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary { background: var(--neutral-100); color: var(--neutral-700); border: 1px solid var(--neutral-300); }
+  .btn-secondary:hover { background: var(--neutral-200); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-sm { padding: 7px 14px; font-size: 12px; border-radius: 6px; width: auto; }
+
+  /* BADGES */
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-pending { background: var(--warning-light); color: var(--warning); }
+  .badge-ready { background: var(--success-light); color: var(--success); }
+  .badge-transit { background: #EDE9FE; color: #7C3AED; }
+  .badge-done { background: var(--neutral-100); color: var(--neutral-500); }
+
+  /* LIST ITEMS */
+  .list-item { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px; }
+  .list-item-body { flex: 1; min-width: 0; }
+  .list-item-title { font-size: 14px; font-weight: 600; color: var(--neutral-900); }
+  .list-item-sub { font-size: 12px; color: var(--neutral-500); margin-top: 3px; }
+  .list-item-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .list-item-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+  .cat-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .cat-pill { font-size: 11px; background: var(--neutral-100); border: 1px solid var(--neutral-200); border-radius: 20px; padding: 2px 8px; color: var(--neutral-700); }
+  .cat-pill.has-val { background: var(--primary-light); border-color: #BFDBFE; color: var(--primary-dark); }
+
+  /* SECTION HEADER */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .section-header h2 { font-size: 17px; font-weight: 700; color: var(--neutral-900); }
+  .section-header p { font-size: 12px; color: var(--neutral-500); margin-top: 2px; }
+
+  /* DASHBOARD */
+  .module-grid { display: grid; gap: 12px; }
+  .module-card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; display: flex; align-items: center; gap: 16px; cursor: pointer; border: 2px solid transparent; transition: all .15s; }
+  .module-card:hover { border-color: var(--primary); box-shadow: var(--shadow-md); }
+  .module-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+  .module-icon.blue { background: var(--primary-light); }
+  .module-icon.green { background: var(--success-light); }
+  .module-icon.purple { background: #EDE9FE; }
+  .module-card h3 { font-size: 15px; font-weight: 600; color: var(--neutral-900); }
+  .module-card p { font-size: 12px; color: var(--neutral-500); margin-top: 3px; }
+  .module-arrow { margin-left: auto; color: var(--neutral-300); font-size: 18px; }
+
+  /* STATS */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border-radius: var(--radius); padding: 14px 12px; text-align: center; box-shadow: var(--shadow); }
+  .stat-num { font-size: 24px; font-weight: 700; color: var(--primary); }
+  .stat-label { font-size: 11px; color: var(--neutral-500); margin-top: 2px; }
+
+  /* TOAST */
+  .toast { position: fixed; top: 70px; right: 16px; background: var(--success); color: #fff; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; z-index: 999; display: none; box-shadow: var(--shadow-md); }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; align-items: flex-end; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 16px 16px 0 0; padding: 24px 20px; width: 100%; max-height: 92vh; overflow-y: auto; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-header h3 { font-size: 16px; font-weight: 700; }
+  .modal-close { background: var(--neutral-100); border: none; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+
+  /* EMPTY */
+  .empty { text-align: center; padding: 40px 20px; color: var(--neutral-400); }
+  .empty .icon { font-size: 40px; display: block; margin-bottom: 8px; }
+  .empty p { font-size: 13px; }
+
+  /* CHECKBOX CUSTOM */
+  .check-row { display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--neutral-50); border-radius: 8px; border: 1px solid var(--neutral-200); cursor: pointer; }
+  .check-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+  .check-row label { font-size: 13px; font-weight: 500; cursor: pointer; margin: 0; }
+
+  /* DONACIÓN SELECTOR en envíos */
+  .don-selector { border: 1px solid var(--neutral-300); border-radius: 10px; overflow: hidden; }
+  .don-selector-item { border-bottom: 1px solid var(--neutral-200); transition: background .1s; }
+  .don-selector-item:last-child { border-bottom: none; }
+  .don-selector-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; }
+  .don-selector-header:hover { background: var(--primary-light); }
+  .don-selector-header input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); flex-shrink: 0; cursor: pointer; }
+  .don-selector-info { flex: 1; }
+  .don-selector-name { font-size: 13px; font-weight: 600; color: var(--neutral-900); }
+  .don-selector-meta { font-size: 12px; color: var(--neutral-500); margin-top: 2px; }
+  .don-selector-cats { padding: 0 14px 12px 42px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .don-sel-pill { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--primary-light); border: 1px solid #BFDBFE; color: var(--primary-dark); }
+
+  /* RESUMEN DE CARGA SELECCIONADA */
+  .cargo-summary { background: var(--neutral-50); border: 1px solid var(--neutral-200); border-radius: 10px; padding: 14px 16px; margin-top: 14px; }
+  .cargo-summary-title { font-size: 12px; font-weight: 600; color: var(--neutral-500); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+  .cargo-summary-cats { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cargo-summary-empty { font-size: 13px; color: var(--neutral-400); }
+  .cargo-total { margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--primary); }
+
+  /* RADIO LIST para recepciones */
+  .radio-list { border: 1px solid var(--neutral-300); border-radius: 10px; overflow: hidden; }
+  .radio-list-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--neutral-200); cursor: pointer; font-size: 13px; }
+  .radio-list-item:last-child { border-bottom: none; }
+  .radio-list-item:hover { background: var(--primary-light); }
+  .radio-list-item input { width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; }
+  .radio-list-body { flex: 1; }
+  .radio-list-name { font-weight: 600; color: var(--neutral-900); }
+  .radio-list-sub { font-size: 12px; color: var(--neutral-500); margin-top: 2px; }
+
+  @media (min-width: 640px) {
+    .page { padding: 28px 24px; }
+    .module-grid { grid-template-columns: 1fr 1fr; }
+    .stats-row { grid-template-columns: repeat(3, 1fr); }
+    .category-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="icon">🏔️</span>
+      <h1>Ayuda Logística BOG</h1>
+      <p>Sistema de gestión humanitaria</p>
+    </div>
+    <div class="form-group">
+      <label for="login-name">Nombre completo</label>
+      <input type="text" id="login-name" placeholder="Ej: María García" />
+    </div>
+    <div class="form-group">
+      <label for="login-doc">Número de documento</label>
+      <input type="text" id="login-doc" placeholder="Ej: 1020304050" />
+    </div>
+    <div class="form-group">
+      <label>Rol</label>
+      <select id="login-role">
+        <option value="voluntario">Voluntario</option>
+        <option value="administrador">Administrador</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" style="margin-top:8px;" onclick="doLogin()">Ingresar al sistema</button>
+    <p style="text-align:center; font-size:12px; color:var(--neutral-400); margin-top:16px;">
+      No se requiere contraseña. Solo identifícate para continuar.
+    </p>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="topbar-brand"><span>🏔️</span> Ayuda Logística</div>
+    <div class="topbar-user">
+      <div class="avatar" id="user-avatar">—</div>
+      <span id="user-name-display" style="font-weight:500; color:var(--neutral-700);"></span>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="page-wrap">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-home">
+      <div style="margin-bottom:20px;">
+        <h2 style="font-size:18px; font-weight:700;">Bienvenido/a 👋</h2>
+        <p style="font-size:13px; color:var(--neutral-500); margin-top:4px;">¿Qué módulo necesitas hoy?</p>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-num" id="stat-donaciones">0</div>
+          <div class="stat-label">Donaciones</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-envios">0</div>
+          <div class="stat-label">Envíos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-recepciones">0</div>
+          <div class="stat-label">Recepciones</div>
+        </div>
+      </div>
+      <div class="module-grid">
+        <div class="module-card" onclick="goTo('donaciones')">
+          <div class="module-icon blue">📦</div>
+          <div>
+            <h3>Registro de Ayuda</h3>
+            <p>Donaciones y kits recibidos</p>
+          </div>
+          <div class="module-arrow">›</div>
+        </div>
+        <div class="module-card" onclick="goTo('envios')">
+          <div class="module-icon purple">🚚</div>
+          <div>
+            <h3>Módulo de Envíos</h3>
+            <p>Despacho logístico</p>
+          </div>
+          <div class="module-arrow">›</div>
+        </div>
+        <div class="module-card" onclick="goTo('recepciones')">
+          <div class="module-icon green">📥</div>
+          <div>
+            <h3>Módulo de Recepciones</h3>
+            <p>Confirmación de entrega</p>
+          </div>
+          <div class="module-arrow">›</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DONACIONES -->
+    <div class="page" id="page-donaciones">
+      <div class="section-header">
+        <div>
+          <h2>📦 Registro de Ayuda</h2>
+          <p>Donaciones en el centro de acopio</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-donacion')">+ Nueva</button>
+      </div>
+      <div id="lista-donaciones">
+        <div class="empty"><span class="icon">📦</span><p>Sin donaciones registradas aún.</p></div>
+      </div>
+    </div>
+
+    <!-- ENVIOS -->
+    <div class="page" id="page-envios">
+      <div class="section-header">
+        <div>
+          <h2>🚚 Módulo de Envíos</h2>
+          <p>Despacho de carga hacia destinos</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-envio')">+ Nuevo</button>
+      </div>
+      <div id="lista-envios">
+        <div class="empty"><span class="icon">🚚</span><p>Sin envíos registrados aún.</p></div>
+      </div>
+    </div>
+
+    <!-- RECEPCIONES -->
+    <div class="page" id="page-recepciones">
+      <div class="section-header">
+        <div>
+          <h2>📥 Módulo de Recepciones</h2>
+          <p>Confirmación de llegada en destino</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-recepcion')">+ Nueva</button>
+      </div>
+      <div id="lista-recepciones">
+        <div class="empty"><span class="icon">📥</span><p>Sin recepciones registradas aún.</p></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="goTo('home')" id="nav-home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span class="nav-label">Inicio</span>
+    </button>
+    <button class="nav-item" onclick="goTo('donaciones')" id="nav-donaciones">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      <span class="nav-label">Donaciones</span>
+    </button>
+    <button class="nav-item" onclick="goTo('envios')" id="nav-envios">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      <span class="nav-label">Envíos</span>
+    </button>
+    <button class="nav-item" onclick="goTo('recepciones')" id="nav-recepciones">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+      <span class="nav-label">Recepciones</span>
+    </button>
+  </nav>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════
+     MODAL: NUEVA DONACIÓN
+     ══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-donacion">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📦 Nueva Donación</h3>
+      <button class="modal-close" onclick="closeModal('modal-donacion')">✕</button>
+    </div>
+
+    <!-- Cabecera -->
+    <div class="card" style="margin-bottom:14px; padding:16px;">
+      <div class="card-title">Datos de cabecera</div>
+      <div class="form-group">
+        <label>Centro de acopio</label>
+        <input type="text" id="d-acopio" placeholder="Ej: Centro Norte, Suba..." />
+      </div>
+      <!-- Responsable: solo lectura, viene del usuario logueado -->
+      <div class="form-group">
+        <label>Registrado por</label>
+        <div class="info-field" id="d-responsable-display">—</div>
+      </div>
+      <!-- Fecha + Hora pre-seteadas -->
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Fecha</label>
+          <input type="date" id="d-fecha" />
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Hora</label>
+          <input type="time" id="d-hora" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:16px; margin-bottom:0;">
+        <label>Destino asignado (opcional)</label>
+        <input type="text" id="d-destino" placeholder="Ciudad o zona de destino" />
+      </div>
+    </div>
+
+    <!-- Categorías: input editable + botones +/- -->
+    <div class="card" style="margin-bottom:14px; padding:16px;">
+      <div class="card-title">Categorías de kits / cajas</div>
+      <div class="category-grid" id="category-counters"></div>
+      <div class="total-bar">
+        <span>Total de cajas</span>
+        <strong id="total-cajas">0</strong>
+      </div>
+    </div>
+
+    <!-- Detalles -->
+    <div class="card" style="margin-bottom:16px; padding:16px;">
+      <div class="card-title">Detalles adicionales</div>
+      <div class="form-group">
+        <label>Comentarios</label>
+        <textarea id="d-comentarios" placeholder="Observaciones, notas especiales..."></textarea>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="d-ready" />
+        <label for="d-ready">Marcar como <strong>Listo para enviar</strong></label>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveDonacion()">Guardar donación</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL: NUEVO ENVÍO
+     ══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-envio">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>🚚 Nuevo Envío</h3>
+      <button class="modal-close" onclick="closeModal('modal-envio')">✕</button>
+    </div>
+
+    <!-- Transporte -->
+    <div class="card" style="margin-bottom:14px; padding:16px;">
+      <div class="card-title">Transporte</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo de transporte</label>
+          <select id="e-tipo">
+            <option>Carro</option>
+            <option>Camión</option>
+            <option>Avión / Vuelo</option>
+            <option>Barco</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Capacidad (Ton)</label>
+          <input type="number" id="e-capacidad" placeholder="0.0" min="0" step="0.5" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>Empresa / Aliado (opcional)</label>
+        <input type="text" id="e-empresa" placeholder="Ej: Satena, Avianca..." />
+      </div>
+    </div>
+
+    <!-- Responsable transporte -->
+    <div class="card" style="margin-bottom:14px; padding:16px;">
+      <div class="card-title">Responsable del transporte</div>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Nombre del responsable</label>
+          <input type="text" id="e-responsable" placeholder="Nombre completo" />
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Teléfono de contacto</label>
+          <input type="tel" id="e-contacto" placeholder="Ej: 310..." />
+        </div>
+      </div>
+    </div>
+
+    <!-- Ruta -->
+    <div class="card" style="margin-bottom:14px; padding:16px;">
+      <div class="card-title">Ruta y tiempo</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fecha de despacho</label>
+          <input type="date" id="e-fecha" />
+        </div>
+        <div class="form-group">
+          <label>Hora</label>
+          <input type="time" id="e-hora" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Placa / Matrícula</label>
+        <input type="text" id="e-placa" placeholder="Ej: ABC-123 / HK-1234" />
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Ciudad origen</label>
+          <input type="text" id="e-origen" placeholder="Ej: Bogotá" />
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Ciudad destino</label>
+          <input type="text" id="e-destino" placeholder="Ej: Mocoa" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Asociar carga — con detalle de categorías -->
+    <div class="card" style="margin-bottom:16px; padding:16px;">
+      <div class="card-title">Asociar carga</div>
+      <p style="font-size:12px; color:var(--neutral-500); margin-bottom:12px;">
+        Selecciona las donaciones listas para enviar. Las categorías y cantidades vienen del empaque registrado.
+      </p>
+      <div id="e-donaciones-list">
+        <div style="padding:12px; font-size:13px; color:var(--neutral-400);">Sin donaciones disponibles</div>
+      </div>
+      <!-- Resumen dinámico de carga seleccionada -->
+      <div class="cargo-summary" id="cargo-summary" style="display:none;">
+        <div class="cargo-summary-title">Resumen de carga seleccionada</div>
+        <div class="cargo-summary-cats" id="cargo-summary-cats"></div>
+        <div class="cargo-total" id="cargo-total"></div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveEnvio()">Registrar envío</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODAL: NUEVA RECEPCIÓN
+     ══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-recepcion">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📥 Nueva Recepción</h3>
+      <button class="modal-close" onclick="closeModal('modal-recepcion')">✕</button>
+    </div>
+
+    <!-- Receptor -->
+    <div class="card" style="margin-bottom:14px; padding:16px;">
+      <div class="card-title">Receptor en destino</div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>Nombre de quien recibe</label>
+        <input type="text" id="r-receptor" placeholder="Nombre completo" />
+      </div>
+    </div>
+
+    <!-- Asociar envío primero para auto-completar -->
+    <div class="card" style="margin-bottom:14px; padding:16px;">
+      <div class="card-title">Asociar envío</div>
+      <p style="font-size:12px; color:var(--neutral-500); margin-bottom:10px;">Selecciona el envío que está llegando — los datos del transporte se pre-cargarán automáticamente.</p>
+      <div id="r-envios-list">
+        <div style="padding:12px; font-size:13px; color:var(--neutral-400);">Sin envíos en tránsito</div>
+      </div>
+      <!-- Detalle de carga del envío seleccionado -->
+      <div id="r-carga-preview" style="display:none; margin-top:12px;">
+        <div style="font-size:12px; font-weight:600; color:var(--neutral-500); text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;">Carga que llega</div>
+        <div id="r-carga-cats" class="cat-pills"></div>
+        <div id="r-carga-total" style="font-size:13px; font-weight:600; color:var(--primary); margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <!-- Verificación transporte -->
+    <div class="card" style="margin-bottom:14px; padding:16px;">
+      <div class="card-title">Verificación del transporte</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo de transporte</label>
+          <select id="r-tipo">
+            <option>Carro</option>
+            <option>Camión</option>
+            <option>Avión / Vuelo</option>
+            <option>Barco</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Capacidad (Ton)</label>
+          <input type="number" id="r-capacidad" placeholder="0.0" min="0" step="0.5" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Empresa aliada (opcional)</label>
+        <input type="text" id="r-empresa" placeholder="Ej: Satena..." />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Responsable transportador</label>
+          <input type="text" id="r-responsable" placeholder="Nombre" />
+        </div>
+        <div class="form-group">
+          <label>Contacto</label>
+          <input type="tel" id="r-contacto" placeholder="Teléfono" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Placa / Matrícula</label>
+        <input type="text" id="r-placa" placeholder="Ej: ABC-123" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fecha de llegada</label>
+          <input type="date" id="r-fecha" />
+        </div>
+        <div class="form-group">
+          <label>Hora de llegada</label>
+          <input type="time" id="r-hora" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Ciudad origen</label>
+          <input type="text" id="r-origen" placeholder="Ej: Bogotá" />
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Ciudad destino</label>
+          <input type="text" id="r-destino" placeholder="Ej: Mocoa" />
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-success" onclick="saveRecepcion()">Confirmar recepción</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────
+let currentUser = null;
+let donaciones  = [];
+let envios      = [];
+let recepciones = [];
+let idCounter   = { d: 1, e: 1, r: 1 };
+
+const CATEGORIES = [
+  { key: 'aseo',         icon: '🧴', name: 'Aseo / Cuidado personal' },
+  { key: 'alimentos',    icon: '🥫', name: 'Alimentos no perecederos' },
+  { key: 'mascotas',     icon: '🐾', name: 'Alimentos mascotas' },
+  { key: 'medicamentos', icon: '💊', name: 'Medicamentos' },
+  { key: 'insumos',      icon: '🩺', name: 'Insumos médicos' },
+  { key: 'rescate',      icon: '⛑️',  name: 'Suministros rescate' },
+  { key: 'refugio',      icon: '🏕️',  name: 'Refugio' },
+  { key: 'ropa',         icon: '👕', name: 'Ropa' },
+];
+
+let catValues = {};
+
+// ── AUTH ───────────────────────────────────────────
+function doLogin() {
+  const name = document.getElementById('login-name').value.trim();
+  const doc  = document.getElementById('login-doc').value.trim();
+  const role = document.getElementById('login-role').value;
+  if (!name || !doc) { showToast('Completa tu nombre y documento', 'error'); return; }
+  currentUser = { name, doc, role };
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('active');
+  document.getElementById('user-name-display').textContent = name.split(' ')[0];
+  document.getElementById('user-avatar').textContent = name[0].toUpperCase();
+  buildCounters();
+  updateStats();
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('login-name').value = '';
+  document.getElementById('login-doc').value  = '';
+  goTo('home');
+}
+
+// ── NAVIGATION ─────────────────────────────────────
+function goTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page)?.classList.add('active');
+  updateStats();
+}
+
+// ── MODALS ─────────────────────────────────────────
+function openModal(id) {
+  setNowDateTime();
+  if (id === 'modal-donacion') {
+    document.getElementById('d-responsable-display').textContent = currentUser.name;
+    buildCounters();
+  }
+  if (id === 'modal-envio') populateEnvioModal();
+  if (id === 'modal-recepcion') populateRecepcionModal();
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// ── FECHA/HORA ACTUAL ──────────────────────────────
+function setNowDateTime() {
+  const now  = new Date();
+  const date = now.toISOString().split('T')[0];
+  const hh   = String(now.getHours()).padStart(2, '0');
+  const mm   = String(now.getMinutes()).padStart(2, '0');
+  const time = hh + ':' + mm;
+
+  [['d-fecha','d-hora'],['e-fecha','e-hora'],['r-fecha','r-hora']].forEach(([df, dh]) => {
+    const fd = document.getElementById(df);
+    const fh = document.getElementById(dh);
+    if (fd && !fd.value) fd.value = date;
+    if (fh && !fh.value) fh.value = time;
+  });
+}
+
+// ── COUNTERS (input editable + +/-) ───────────────
+function buildCounters() {
+  catValues = {};
+  CATEGORIES.forEach(c => catValues[c.key] = 0);
+  const grid = document.getElementById('category-counters');
+  grid.innerHTML = CATEGORIES.map(c => `
+    <div class="cat-row">
+      <div class="cat-icon">${c.icon}</div>
+      <div class="cat-name">${c.name}</div>
+      <div class="counter">
+        <button class="counter-btn" type="button" onclick="changeCount('${c.key}',-1)">−</button>
+        <input
+          class="counter-input"
+          type="number"
+          id="cnt-${c.key}"
+          value="0"
+          min="0"
+          oninput="syncCount('${c.key}')"
+          onchange="syncCount('${c.key}')"
+        />
+        <button class="counter-btn plus" type="button" onclick="changeCount('${c.key}',1)">+</button>
+      </div>
+    </div>
+  `).join('');
+  updateTotal();
+}
+
+function changeCount(key, delta) {
+  const input = document.getElementById('cnt-' + key);
+  const cur = parseInt(input.value) || 0;
+  input.value = Math.max(0, cur + delta);
+  catValues[key] = parseInt(input.value);
+  updateTotal();
+}
+
+function syncCount(key) {
+  const input = document.getElementById('cnt-' + key);
+  const val = parseInt(input.value);
+  catValues[key] = isNaN(val) || val < 0 ? 0 : val;
+  if (isNaN(val) || val < 0) input.value = 0;
+  updateTotal();
+}
+
+function updateTotal() {
+  const total = Object.values(catValues).reduce((a, b) => a + b, 0);
+  document.getElementById('total-cajas').textContent = total;
+}
+
+function readCatValues() {
+  const out = {};
+  CATEGORIES.forEach(c => {
+    const el = document.getElementById('cnt-' + c.key);
+    out[c.key] = el ? (parseInt(el.value) || 0) : 0;
+  });
+  return out;
+}
+
+// ── DONACIONES ─────────────────────────────────────
+function saveDonacion() {
+  const acopio = document.getElementById('d-acopio').value.trim();
+  const fecha  = document.getElementById('d-fecha').value;
+  if (!acopio || !fecha) { showToast('Centro de acopio y fecha son requeridos', 'error'); return; }
+
+  const cats  = readCatValues();
+  const total = Object.values(cats).reduce((a, b) => a + b, 0);
+  const ready = document.getElementById('d-ready').checked;
+
+  const don = {
+    id: 'D-' + String(idCounter.d++).padStart(3, '0'),
+    acopio,
+    responsable: currentUser.name,
+    fecha,
+    hora: document.getElementById('d-hora').value,
+    destino: document.getElementById('d-destino').value.trim(),
+    comentarios: document.getElementById('d-comentarios').value.trim(),
+    categorias: cats,
+    totalCajas: total,
+    estado: ready ? 'listo' : 'pendiente',
+  };
+
+  donaciones.push(don);
+  closeModal('modal-donacion');
+  resetDonacionForm();
+  renderDonaciones();
+  updateStats();
+  showToast('Donación ' + don.id + ' registrada');
+}
+
+function resetDonacionForm() {
+  document.getElementById('d-acopio').value      = '';
+  document.getElementById('d-destino').value     = '';
+  document.getElementById('d-comentarios').value = '';
+  document.getElementById('d-ready').checked     = false;
+  document.getElementById('d-fecha').value       = '';
+  document.getElementById('d-hora').value        = '';
+  buildCounters();
+}
+
+function toggleListoParaEnviar(id) {
+  const don = donaciones.find(d => d.id === id);
+  if (!don || don.estado === 'en_transito' || don.estado === 'entregado') return;
+  don.estado = don.estado === 'listo' ? 'pendiente' : 'listo';
+  renderDonaciones();
+}
+
+function renderDonaciones() {
+  const el = document.getElementById('lista-donaciones');
+  if (!donaciones.length) {
+    el.innerHTML = '<div class="empty"><span class="icon">📦</span><p>Sin donaciones registradas aún.</p></div>';
+    return;
+  }
+  el.innerHTML = donaciones.map(d => {
+    const canToggle = d.estado === 'listo' || d.estado === 'pendiente';
+    return `
+    <div class="list-item">
+      <div style="font-size:22px;">📦</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${d.id} — ${d.acopio}</div>
+        <div class="list-item-sub">${d.fecha}${d.hora ? ' ' + d.hora : ''} · ${d.responsable} · <strong>${d.totalCajas}</strong> cajas</div>
+        ${d.destino ? `<div class="list-item-sub">→ ${d.destino}</div>` : ''}
+        <div class="cat-pills">${catPills(d.categorias)}</div>
+        <div class="list-item-meta" style="margin-top:8px;">${badgeFor(d.estado)}</div>
+      </div>
+      ${canToggle ? `
+      <div class="list-item-actions">
+        <button class="btn btn-secondary btn-sm" onclick="toggleListoParaEnviar('${d.id}')">
+          ${d.estado === 'listo' ? '↩ Pendiente' : '✔ Listo'}
+        </button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── ENVÍOS ─────────────────────────────────────────
+function populateEnvioModal() {
+  const disponibles = donaciones.filter(d => d.estado === 'listo');
+  const container   = document.getElementById('e-donaciones-list');
+
+  if (!disponibles.length) {
+    container.innerHTML = '<div style="padding:12px; font-size:13px; color:var(--neutral-400);">Sin donaciones marcadas como "Listo para enviar"</div>';
+    document.getElementById('cargo-summary').style.display = 'none';
+    return;
+  }
+
+  container.innerHTML = `<div class="don-selector">` + disponibles.map(d => {
+    const pills = CATEGORIES
+      .filter(c => d.categorias[c.key] > 0)
+      .map(c => `<span class="don-sel-pill">${c.icon} ${c.name}: ${d.categorias[c.key]}</span>`)
+      .join('');
+    return `
+    <div class="don-selector-item">
+      <div class="don-selector-header">
+        <input type="checkbox" name="e-don-sel" value="${d.id}" onchange="updateCargoSummary()" />
+        <div class="don-selector-info">
+          <div class="don-selector-name">${d.id} — ${d.acopio}</div>
+          <div class="don-selector-meta">${d.fecha}${d.hora ? ' ' + d.hora : ''} · <strong>${d.totalCajas} cajas</strong>${d.destino ? ' · → ' + d.destino : ''}</div>
+        </div>
+      </div>
+      ${pills ? `<div class="don-selector-cats">${pills}</div>` : ''}
+    </div>`;
+  }).join('') + `</div>`;
+
+  updateCargoSummary();
+}
+
+function updateCargoSummary() {
+  const checked = [...document.querySelectorAll('input[name="e-don-sel"]:checked')].map(i => i.value);
+  const summary = document.getElementById('cargo-summary');
+
+  if (!checked.length) { summary.style.display = 'none'; return; }
+
+  // agregar categorías de todas las donaciones seleccionadas
+  const agg = {};
+  CATEGORIES.forEach(c => agg[c.key] = 0);
+  let totalCajas = 0;
+
+  checked.forEach(id => {
+    const don = donaciones.find(d => d.id === id);
+    if (!don) return;
+    CATEGORIES.forEach(c => { agg[c.key] += (don.categorias[c.key] || 0); });
+    totalCajas += don.totalCajas;
+  });
+
+  const pills = CATEGORIES
+    .filter(c => agg[c.key] > 0)
+    .map(c => `<span class="don-sel-pill">${c.icon} ${c.name}: <strong>${agg[c.key]}</strong></span>`)
+    .join('');
+
+  document.getElementById('cargo-summary-cats').innerHTML = pills || '<span style="font-size:13px;color:var(--neutral-400);">Sin categorías con cantidad</span>';
+  document.getElementById('cargo-total').textContent = `📦 Total: ${totalCajas} cajas en ${checked.length} donación(es)`;
+  summary.style.display = 'block';
+}
+
+function saveEnvio() {
+  const responsable = document.getElementById('e-responsable').value.trim();
+  const fecha       = document.getElementById('e-fecha').value;
+  const destino     = document.getElementById('e-destino').value.trim();
+  const origen      = document.getElementById('e-origen').value.trim();
+  if (!responsable || !fecha || !destino || !origen) {
+    showToast('Completa responsable, ruta y fecha', 'error');
+    return;
+  }
+
+  const selected = [...document.querySelectorAll('input[name="e-don-sel"]:checked')].map(i => i.value);
+
+  // calcular carga total del envío
+  const cargaAgg = {};
+  CATEGORIES.forEach(c => cargaAgg[c.key] = 0);
+  let totalCajas = 0;
+  selected.forEach(id => {
+    const don = donaciones.find(d => d.id === id);
+    if (!don) return;
+    CATEGORIES.forEach(c => { cargaAgg[c.key] += (don.categorias[c.key] || 0); });
+    totalCajas += don.totalCajas;
+  });
+
+  const env = {
+    id: 'E-' + String(idCounter.e++).padStart(3, '0'),
+    tipo:          document.getElementById('e-tipo').value,
+    capacidad:     document.getElementById('e-capacidad').value,
+    empresa:       document.getElementById('e-empresa').value.trim(),
+    responsable,
+    contacto:      document.getElementById('e-contacto').value.trim(),
+    fecha,
+    hora:          document.getElementById('e-hora').value,
+    placa:         document.getElementById('e-placa').value.trim(),
+    origen,
+    destino,
+    donacionesIds: selected,
+    cargaCategorias: cargaAgg,
+    totalCajas,
+    estado: 'en_transito',
+    creadoPor: currentUser.name,
+  };
+
+  selected.forEach(id => {
+    const don = donaciones.find(d => d.id === id);
+    if (don) don.estado = 'en_transito';
+  });
+
+  envios.push(env);
+  closeModal('modal-envio');
+  resetEnvioForm();
+  renderEnvios();
+  renderDonaciones();
+  updateStats();
+  showToast('Envío ' + env.id + ' registrado');
+}
+
+function resetEnvioForm() {
+  ['e-capacidad','e-empresa','e-responsable','e-contacto','e-fecha','e-hora','e-placa','e-origen','e-destino']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('cargo-summary').style.display = 'none';
+}
+
+function renderEnvios() {
+  const el = document.getElementById('lista-envios');
+  if (!envios.length) {
+    el.innerHTML = '<div class="empty"><span class="icon">🚚</span><p>Sin envíos registrados aún.</p></div>';
+    return;
+  }
+  el.innerHTML = envios.map(e => `
+    <div class="list-item">
+      <div style="font-size:22px;">${tipoIcon(e.tipo)}</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${e.id} — ${e.tipo}</div>
+        <div class="list-item-sub">${e.origen} → ${e.destino} · ${e.fecha}${e.hora ? ' ' + e.hora : ''}</div>
+        ${e.empresa ? `<div class="list-item-sub">${e.empresa} · ${e.responsable}</div>` : `<div class="list-item-sub">${e.responsable}</div>`}
+        ${e.donacionesIds.length ? `<div class="list-item-sub">Donaciones: ${e.donacionesIds.join(', ')} · <strong>${e.totalCajas} cajas</strong></div>` : ''}
+        <div class="cat-pills">${catPills(e.cargaCategorias)}</div>
+        <div class="list-item-meta" style="margin-top:8px;">${badgeFor(e.estado)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── RECEPCIONES ────────────────────────────────────
+function populateRecepcionModal() {
+  const enTransito = envios.filter(e => e.estado === 'en_transito');
+  const list = document.getElementById('r-envios-list');
+
+  if (!enTransito.length) {
+    list.innerHTML = '<div style="padding:12px; font-size:13px; color:var(--neutral-400);">Sin envíos en tránsito actualmente</div>';
+    document.getElementById('r-carga-preview').style.display = 'none';
+    return;
+  }
+
+  list.innerHTML = `<div class="radio-list">` + enTransito.map(e => `
+    <label class="radio-list-item" onclick="previewCargaRecepcion('${e.id}')">
+      <input type="radio" name="r-env-sel" value="${e.id}" onchange="previewCargaRecepcion('${e.id}')" />
+      <div class="radio-list-body">
+        <div class="radio-list-name">${e.id} — ${e.tipo} ${e.empresa ? '· ' + e.empresa : ''}</div>
+        <div class="radio-list-sub">${e.origen} → ${e.destino} · ${e.totalCajas} cajas</div>
+      </div>
+    </label>
+  `).join('') + `</div>`;
+}
+
+function previewCargaRecepcion(envioId) {
+  const env = envios.find(e => e.id === envioId);
+  if (!env) return;
+
+  // pre-llenar datos del transporte del envío
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  setVal('r-tipo',        env.tipo);
+  setVal('r-capacidad',   env.capacidad);
+  setVal('r-empresa',     env.empresa);
+  setVal('r-responsable', env.responsable);
+  setVal('r-contacto',    env.contacto);
+  setVal('r-placa',       env.placa);
+  setVal('r-origen',      env.origen);
+  setVal('r-destino',     env.destino);
+  // select correcto en tipo
+  const tipoSel = document.getElementById('r-tipo');
+  if (tipoSel) tipoSel.value = env.tipo;
+
+  // mostrar preview de carga
+  const preview = document.getElementById('r-carga-preview');
+  document.getElementById('r-carga-cats').innerHTML = catPills(env.cargaCategorias);
+  document.getElementById('r-carga-total').textContent = `📦 ${env.totalCajas} cajas totales`;
+  preview.style.display = 'block';
+}
+
+function saveRecepcion() {
+  const receptor = document.getElementById('r-receptor').value.trim();
+  const fecha    = document.getElementById('r-fecha').value;
+  if (!receptor || !fecha) { showToast('Receptor y fecha de llegada son requeridos', 'error'); return; }
+
+  const sel     = document.querySelector('input[name="r-env-sel"]:checked');
+  const envioId = sel ? sel.value : null;
+
+  const rec = {
+    id: 'R-' + String(idCounter.r++).padStart(3, '0'),
+    receptor,
+    tipo:        document.getElementById('r-tipo').value,
+    capacidad:   document.getElementById('r-capacidad').value,
+    empresa:     document.getElementById('r-empresa').value.trim(),
+    responsable: document.getElementById('r-responsable').value.trim(),
+    contacto:    document.getElementById('r-contacto').value.trim(),
+    placa:       document.getElementById('r-placa').value.trim(),
+    fecha,
+    hora:        document.getElementById('r-hora').value,
+    origen:      document.getElementById('r-origen').value.trim(),
+    destino:     document.getElementById('r-destino').value.trim(),
+    envioId,
+    creadoPor: currentUser.name,
+  };
+
+  if (envioId) {
+    const env = envios.find(e => e.id === envioId);
+    if (env) {
+      rec.cargaCategorias = env.cargaCategorias;
+      rec.totalCajas      = env.totalCajas;
+      env.estado = 'entregado';
+      env.donacionesIds.forEach(id => {
+        const don = donaciones.find(d => d.id === id);
+        if (don) don.estado = 'entregado';
+      });
+    }
+  }
+
+  recepciones.push(rec);
+  closeModal('modal-recepcion');
+  resetRecepcionForm();
+  renderRecepciones();
+  renderDonaciones();
+  renderEnvios();
+  updateStats();
+  showToast('Recepción ' + rec.id + ' confirmada');
+}
+
+function resetRecepcionForm() {
+  ['r-receptor','r-capacidad','r-empresa','r-responsable','r-contacto','r-placa','r-fecha','r-hora','r-origen','r-destino']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('r-carga-preview').style.display = 'none';
+}
+
+function renderRecepciones() {
+  const el = document.getElementById('lista-recepciones');
+  if (!recepciones.length) {
+    el.innerHTML = '<div class="empty"><span class="icon">📥</span><p>Sin recepciones registradas aún.</p></div>';
+    return;
+  }
+  el.innerHTML = recepciones.map(r => `
+    <div class="list-item">
+      <div style="font-size:22px;">📥</div>
+      <div class="list-item-body">
+        <div class="list-item-title">${r.id} — Recibido por: ${r.receptor}</div>
+        <div class="list-item-sub">${r.origen || '—'} → ${r.destino || '—'} · ${r.fecha}${r.hora ? ' ' + r.hora : ''}</div>
+        ${r.envioId ? `<div class="list-item-sub">Envío asociado: ${r.envioId}${r.totalCajas ? ' · ' + r.totalCajas + ' cajas' : ''}</div>` : ''}
+        ${r.cargaCategorias ? `<div class="cat-pills">${catPills(r.cargaCategorias)}</div>` : ''}
+        <div class="list-item-meta" style="margin-top:8px;"><span class="badge badge-ready">✔ Entregado / Recibido</span></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── UTILS ──────────────────────────────────────────
+function updateStats() {
+  document.getElementById('stat-donaciones').textContent  = donaciones.length;
+  document.getElementById('stat-envios').textContent      = envios.length;
+  document.getElementById('stat-recepciones').textContent = recepciones.length;
+}
+
+function catPills(cats) {
+  if (!cats) return '';
+  return CATEGORIES
+    .filter(c => cats[c.key] > 0)
+    .map(c => `<span class="cat-pill has-val">${c.icon} ${cats[c.key]}</span>`)
+    .join('');
+}
+
+function badgeFor(estado) {
+  const map = {
+    pendiente:   '<span class="badge badge-pending">⏳ Pendiente</span>',
+    listo:       '<span class="badge badge-ready">✔ Listo para enviar</span>',
+    en_transito: '<span class="badge badge-transit">🚚 En tránsito</span>',
+    entregado:   '<span class="badge badge-done">✔ Entregado</span>',
+  };
+  return map[estado] || '';
+}
+
+function tipoIcon(tipo) {
+  if (!tipo) return '🚚';
+  if (tipo.includes('Avión') || tipo.includes('Vuelo')) return '✈️';
+  if (tipo.includes('Barco')) return '🚢';
+  if (tipo.includes('Camión')) return '🚛';
+  return '🚗';
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = (type === 'error' ? '⚠️ ' : '✓ ') + msg;
+  t.style.background = type === 'error' ? 'var(--danger)' : 'var(--success)';
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+// cerrar modal al hacer clic fuera
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>
