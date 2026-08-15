@@ -35,15 +35,3 @@ class CategoriasKits(BaseModel):
             self.aseo + self.alimentos + self.mascotas + self.medicamentos
             + self.insumos + self.rescate + self.refugio + self.ropa
         )
-
-    def sumar(self, other: "CategoriasKits") -> "CategoriasKits":
-        return CategoriasKits(
-            aseo=self.aseo + other.aseo,
-            alimentos=self.alimentos + other.alimentos,
-            mascotas=self.mascotas + other.mascotas,
-            medicamentos=self.medicamentos + other.medicamentos,
-            insumos=self.insumos + other.insumos,
-            rescate=self.rescate + other.rescate,
-            refugio=self.refugio + other.refugio,
-            ropa=self.ropa + other.ropa,
-        )

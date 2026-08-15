@@ -81,14 +81,3 @@ export interface Recepcion {
   creado_por_nombre?:  string
   created_at:          string
 }
-
-export interface PaginationParams {
-  page?:  number
-  limit?: number
-}
-
-export interface ApiError {
-  detail: string
-  code?:  string
-  status: number
-}

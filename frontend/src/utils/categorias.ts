@@ -22,19 +22,3 @@ export const EMPTY_CATEGORIAS: CategoriasKits = {
   insumos: 0, rescate: 0, refugio: 0, ropa: 0,
 }
 
-export function totalCajas(c: CategoriasKits): number {
-  return Object.values(c).reduce((s, v) => s + v, 0)
-}
-
-export function sumarCategorias(a: CategoriasKits, b: CategoriasKits): CategoriasKits {
-  return {
-    aseo:         a.aseo + b.aseo,
-    alimentos:    a.alimentos + b.alimentos,
-    mascotas:     a.mascotas + b.mascotas,
-    medicamentos: a.medicamentos + b.medicamentos,
-    insumos:      a.insumos + b.insumos,
-    rescate:      a.rescate + b.rescate,
-    refugio:      a.refugio + b.refugio,
-    ropa:         a.ropa + b.ropa,
-  }
-}
