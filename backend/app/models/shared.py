@@ -2,13 +2,6 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 
-class EstadoDonacion(str, Enum):
-    pendiente   = "pendiente"
-    listo       = "listo"
-    en_transito = "en_transito"
-    entregado   = "entregado"
-
-
 class EstadoEnvio(str, Enum):
     en_transito = "en_transito"
     entregado   = "entregado"

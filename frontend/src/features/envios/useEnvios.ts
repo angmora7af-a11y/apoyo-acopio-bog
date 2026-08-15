@@ -19,9 +19,6 @@ export function useCrearEnvio() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: crearEnvio,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEYS.all })
-      qc.invalidateQueries({ queryKey: ['donaciones'] })
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.all }),
   })
 }

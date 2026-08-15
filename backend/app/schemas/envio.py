@@ -14,7 +14,7 @@ class CrearEnvioRequest(BaseModel):
     fecha_hora:         datetime
     ciudad_origen:      str = Field(min_length=2)
     ciudad_destino:     str = Field(min_length=2)
-    donaciones_ids:     list[str] = Field(default_factory=list)
+    categorias:         CategoriasKits
 
 
 class EnvioResponse(BaseModel):
@@ -29,7 +29,6 @@ class EnvioResponse(BaseModel):
     fecha_hora:         datetime
     ciudad_origen:      str
     ciudad_destino:     str
-    donaciones_ids:     list[str]
     carga_categorias:   CategoriasKits
     total_cajas:        int
     estado:             EstadoEnvio

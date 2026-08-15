@@ -1,5 +1,4 @@
 export type Rol = 'voluntario' | 'administrador'
-export type EstadoDonacion = 'pendiente' | 'listo' | 'en_transito' | 'entregado'
 export type EstadoEnvio = 'en_transito' | 'entregado'
 export type TipoTransporte = 'carro' | 'camion' | 'avion_vuelo' | 'barco' | 'otro'
 
@@ -28,15 +27,14 @@ export interface SessionData extends Voluntario {
 export interface Donacion {
   id:                 string
   codigo:             string
-  acopio:             string
-  responsable_id:     string
-  responsable_nombre: string
   fecha_hora:         string
-  destino?:           string
-  comentarios?:       string
+  donante_nombre:     string
+  receptor_nombre:    string
   categorias:         CategoriasKits
   total_cajas:        number
-  estado:             EstadoDonacion
+  comentarios?:       string
+  creado_por_id:      string
+  creado_por_nombre:  string
   created_at:         string
   updated_at:         string
 }
@@ -53,7 +51,6 @@ export interface Envio {
   fecha_hora:         string
   ciudad_origen:      string
   ciudad_destino:     string
-  donaciones_ids:     string[]
   carga_categorias:   CategoriasKits
   total_cajas:        number
   estado:             EstadoEnvio

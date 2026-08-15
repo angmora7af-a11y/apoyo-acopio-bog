@@ -24,18 +24,13 @@ async def create_indexes() -> None:
 
     # ── donaciones ───────────────────────────────────────────
     await _idx(db.donaciones, "codigo",                   unique=True, name="uq_donaciones_codigo")
-    await _idx(db.donaciones, "estado",                                name="idx_donaciones_estado")
-    await _idx(db.donaciones, "responsable_id",                        name="idx_donaciones_responsable")
-    await _idx(db.donaciones, "acopio",                                name="idx_donaciones_acopio")
-    await _idx(db.donaciones, [("estado", 1), ("fecha_hora", -1)],     name="idx_donaciones_estado_fecha")
-    await _idx(db.donaciones, [("acopio", 1), ("estado", 1)],          name="idx_donaciones_acopio_estado")
-    await _idx(db.donaciones, [("estado", 1), ("total_cajas", 1)],     name="idx_donaciones_estado_cajas")
+    await _idx(db.donaciones, "fecha_hora",                            name="idx_donaciones_fecha_hora")
+    await _idx(db.donaciones, "donante_nombre",                        name="idx_donaciones_donante")
 
     # ── envios ───────────────────────────────────────────────
     await _idx(db.envios, "codigo",                       unique=True, name="uq_envios_codigo")
     await _idx(db.envios, "estado",                                    name="idx_envios_estado")
     await _idx(db.envios, "fecha_hora",                                name="idx_envios_fecha_hora")
-    await _idx(db.envios, "donaciones_ids",                            name="idx_envios_donaciones_ids")
     await _idx(db.envios, "ciudad_destino",                            name="idx_envios_destino")
     await _idx(db.envios, [("estado", 1), ("fecha_hora", -1)],         name="idx_envios_estado_fecha")
     await _idx(db.envios, [("ciudad_origen", 1), ("ciudad_destino", 1)], name="idx_envios_ruta")

@@ -1,14 +1,11 @@
 from datetime import timezone
-from fastapi import HTTPException, status
-from beanie import PydanticObjectId
+from fastapi import HTTPException
 
-from app.models.donacion import Donacion
 from app.models.envio import Envio
 from app.models.voluntario import Voluntario
-from app.models.shared import EstadoDonacion, EstadoEnvio, CategoriasKits
+from app.models.shared import EstadoEnvio
 from app.schemas.envio import CrearEnvioRequest, EnvioResponse
 from app.utils.codigo_generator import next_codigo
-from app.utils.datetime_utils import utcnow
 
 
 def _to_response(e: Envio) -> EnvioResponse:
@@ -24,7 +21,6 @@ def _to_response(e: Envio) -> EnvioResponse:
         fecha_hora=e.fecha_hora,
         ciudad_origen=e.ciudad_origen,
         ciudad_destino=e.ciudad_destino,
-        donaciones_ids=[str(i) for i in e.donaciones_ids],
         carga_categorias=e.carga_categorias,
         total_cajas=e.total_cajas,
         estado=e.estado,
@@ -36,25 +32,6 @@ def _to_response(e: Envio) -> EnvioResponse:
 
 
 async def crear_envio(body: CrearEnvioRequest, usuario: Voluntario) -> EnvioResponse:
-    don_ids = [PydanticObjectId(i) for i in body.donaciones_ids]
-
-    # Validar que todas las donaciones existen y están listas
-    donaciones = await Donacion.find(
-        {"_id": {"$in": don_ids}, "estado": EstadoDonacion.listo}
-    ).to_list()
-
-    if len(donaciones) != len(don_ids):
-        raise HTTPException(
-            status_code=400,
-            detail="Algunas donaciones no existen o no están en estado 'listo'",
-        )
-
-    # Agregar categorías
-    carga = CategoriasKits()
-    for d in donaciones:
-        carga = carga.sumar(d.categorias)
-    total = sum(d.total_cajas for d in donaciones)
-
     codigo = await next_codigo("E")
     fecha = body.fecha_hora.replace(tzinfo=timezone.utc) if body.fecha_hora.tzinfo is None else body.fecha_hora
 
@@ -69,19 +46,12 @@ async def crear_envio(body: CrearEnvioRequest, usuario: Voluntario) -> EnvioResp
         fecha_hora=fecha,
         ciudad_origen=body.ciudad_origen,
         ciudad_destino=body.ciudad_destino,
-        donaciones_ids=don_ids,
-        carga_categorias=carga,
-        total_cajas=total,
+        carga_categorias=body.categorias,
+        total_cajas=body.categorias.total(),
         creado_por_id=usuario.id,
         creado_por_nombre=usuario.nombre,
     )
     await envio.insert()
-
-    # Actualizar donaciones → en_transito
-    now = utcnow()
-    await Donacion.find({"_id": {"$in": don_ids}}).update_many(
-        {"$set": {"estado": EstadoDonacion.en_transito, "updated_at": now}}
-    )
 
     return _to_response(envio)
 

@@ -16,7 +16,6 @@ class Envio(Document):
     fecha_hora:         datetime
     ciudad_origen:      str
     ciudad_destino:     str
-    donaciones_ids:     list[PydanticObjectId] = Field(default_factory=list)
     carga_categorias:   CategoriasKits
     total_cajas:        int = Field(default=0, ge=0)
     estado:             EstadoEnvio = EstadoEnvio.en_transito

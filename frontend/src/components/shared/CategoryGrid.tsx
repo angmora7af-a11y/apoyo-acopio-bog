@@ -1,4 +1,4 @@
-import { CATEGORIES, EMPTY_CATEGORIAS } from '@/utils/categorias'
+import { CATEGORIES } from '@/utils/categorias'
 import type { CategoriasKits } from '@/types'
 
 interface Props {
