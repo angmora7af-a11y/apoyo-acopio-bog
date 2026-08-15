@@ -6,20 +6,17 @@
     },
     "backend": {
       "root": "backend",
-      "entrypoint": "api/index.py"
+      "entrypoint": "app.main:app"
     }
   },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "backend"
+      "source": "/api(/.*)?",
+      "destination": { "service": "backend" }
     },
     {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "frontend"
+      "source": "/(.*)",
+      "destination": { "service": "frontend" }
     }
   ]
 }
