@@ -1,35 +1,27 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
-from app.models.shared import EstadoDonacion, CategoriasKits
+from app.models.shared import CategoriasKits
 
 
 class CrearDonacionRequest(BaseModel):
-    acopio:      str = Field(min_length=2)
-    fecha_hora:  datetime
-    destino:     Optional[str] = None
-    comentarios: Optional[str] = None
-    categorias:  CategoriasKits
-    estado:      EstadoDonacion = EstadoDonacion.pendiente
-
-
-class CambiarEstadoRequest(BaseModel):
-    estado: EstadoDonacion
-
-    model_config = {"json_schema_extra": {"example": {"estado": "listo"}}}
+    fecha_hora:      datetime
+    donante_nombre:  str = Field(min_length=2)
+    receptor_nombre: str = Field(min_length=2)
+    categorias:      CategoriasKits
+    comentarios:     Optional[str] = None
 
 
 class DonacionResponse(BaseModel):
-    id:                 str
-    codigo:             str
-    acopio:             str
-    responsable_id:     str
-    responsable_nombre: str
-    fecha_hora:         datetime
-    destino:            Optional[str]
-    comentarios:        Optional[str]
-    categorias:         CategoriasKits
-    total_cajas:        int
-    estado:             EstadoDonacion
-    created_at:         datetime
-    updated_at:         datetime
+    id:                str
+    codigo:            str
+    fecha_hora:        datetime
+    donante_nombre:    str
+    receptor_nombre:   str
+    categorias:        CategoriasKits
+    total_cajas:       int
+    comentarios:       Optional[str]
+    creado_por_id:     str
+    creado_por_nombre: str
+    created_at:        datetime
+    updated_at:        datetime

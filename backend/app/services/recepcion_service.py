@@ -2,11 +2,10 @@ from datetime import timezone
 from fastapi import HTTPException
 from beanie import PydanticObjectId
 
-from app.models.donacion import Donacion
 from app.models.envio import Envio
 from app.models.recepcion import Recepcion
 from app.models.voluntario import Voluntario
-from app.models.shared import EstadoDonacion, EstadoEnvio
+from app.models.shared import EstadoEnvio
 from app.schemas.recepcion import CrearRecepcionRequest, RecepcionResponse
 from app.utils.codigo_generator import next_codigo
 from app.utils.datetime_utils import utcnow
@@ -85,14 +84,6 @@ async def confirmar_recepcion(
             await Envio.find_one(Envio.id == envio.id, session=session).update(
                 {"$set": {"estado": EstadoEnvio.entregado, "updated_at": now}}
             )
-
-            # Donaciones del envío → entregado
-            if envio.donaciones_ids:
-                await Donacion.find(
-                    {"_id": {"$in": envio.donaciones_ids}}, session=session
-                ).update_many(
-                    {"$set": {"estado": EstadoDonacion.entregado, "updated_at": now}}
-                )
 
     return _to_response(recepcion)
 

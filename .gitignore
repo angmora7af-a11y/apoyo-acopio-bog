@@ -1,0 +1,14 @@
+atlas-credentials.env
+*.env
+*.env.bak
+!*.env.example
+
+__pycache__/
+*.pyc
+.venv/
+
+node_modules/
+dist/
+build/
+
+.DS_Store

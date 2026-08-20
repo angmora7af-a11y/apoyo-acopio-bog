@@ -1,6 +1,7 @@
-#!/Users/imagineapps/Documents/ayuda_logistica_bog/backend/.venv/bin/python3.12
+#!/Users/angelaforero/Documents/apoyo-acopio-bog/backend/.venv/bin/python3.12
 import sys
 from rsa.cli import encrypt
 if __name__ == '__main__':
-    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    if sys.argv[0].endswith('.exe'):
+        sys.argv[0] = sys.argv[0][:-4]
     sys.exit(encrypt())

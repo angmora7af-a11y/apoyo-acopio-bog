@@ -1,8 +1,8 @@
 # Architecture — Ayuda Logística BOG
 
 > **Audiencia:** Equipo de desarrollo  
-> **Stack:** React · FastAPI · MongoDB Atlas · AWS (S3, CloudFront, EC2)  
-> **Versión:** 1.0 — Agosto 2026
+> **Stack:** React · FastAPI · MongoDB Atlas · Vercel (frontend estático + backend serverless)  
+> **Versión:** 1.1 — Agosto 2026
 
 ---
 
@@ -13,7 +13,7 @@
 3. [Frontend — React](#3-frontend--react)
 4. [Backend — FastAPI](#4-backend--fastapi)
 5. [Base de datos — MongoDB Atlas](#5-base-de-datos--mongodb-atlas)
-6. [Infraestructura AWS](#6-infraestructura-aws)
+6. [Infraestructura Vercel](#6-infraestructura-vercel)
 7. [Contrato de API](#7-contrato-de-api)
 8. [Seguridad](#8-seguridad)
 9. [Flujo de datos end-to-end](#9-flujo-de-datos-end-to-end)
@@ -33,24 +33,22 @@
                                │  HTTPS
                                ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                  AWS CloudFront (CDN + TLS)                       │
-│   Edge caching · Geo-routing · WAF rules · Custom domain HTTPS   │
+│                  Vercel Edge Network (CDN + TLS)                  │
+│   Un solo dominio/proyecto · mismo origen para todo → sin CORS  │
 └──────────┬───────────────────────────────────────────────────────┘
            │                              │
-    /  (assets)                   /api/*  (proxy pass)
+    /  (assets)                   /api/*  (route)
            │                              │
            ▼                              ▼
 ┌──────────────────┐         ┌────────────────────────────────────┐
-│  AWS S3          │         │  AWS EC2  (t3.small / t3.medium)   │
-│  React SPA       │         │  ┌──────────────────────────────┐  │
-│  (static build)  │         │  │  Docker                      │  │
-│                  │         │  │  ┌────────────────────────┐  │  │
-│  index.html      │         │  │  │  Gunicorn + Uvicorn    │  │  │
-│  assets/         │         │  │  │  FastAPI Application   │  │  │
-│  favicon.ico     │         │  │  └────────────────────────┘  │  │
-└──────────────────┘         │  └──────────────────────────────┘  │
-                             │  Nginx (reverse proxy + SSL term.)  │
-                             └───────────────┬────────────────────┘
+│  Vercel           │         │  Vercel Serverless Function        │
+│  Static Build     │         │  (Python runtime, @vercel/python)  │
+│  React SPA        │         │  ┌──────────────────────────────┐ │
+│                   │         │  │  ASGI: backend/api/index.py │ │
+│  index.html       │         │  │  → FastAPI Application       │ │
+│  assets/          │         │  └──────────────────────────────┘ │
+│  favicon.ico      │         │  Cold start por invocación fría   │
+└──────────────────┘         └───────────────┬────────────────────┘
                                              │  TLS / Motor async
                                              ▼
                              ┌───────────────────────────────────┐
@@ -92,21 +90,19 @@
 | ODM / Driver | Beanie + Motor | 1.26.x / 3.x | ODM async sobre Motor, modelos Pydantic |
 | Validación | Pydantic v2 | 2.x | 5-17x más rápido que v1, integrado en FastAPI |
 | Auth | python-jose + passlib | latest | JWT HS256, bcrypt |
-| CORS | FastAPI middleware | — | Permitir dominio CloudFront |
+| CORS | FastAPI middleware | — | Mismo origen en prod (Vercel routes `/api/*`); habilitado para `localhost` en dev |
 | Variables de entorno | pydantic-settings | 2.x | `.env` type-safe |
 | Testing | Pytest + httpx | latest | Async test client |
 
 ### Infraestructura
 | Servicio | Uso |
 |----------|-----|
-| AWS S3 | Hosting del bundle React (static website) |
-| AWS CloudFront | CDN, TLS, proxy `/api/*` → EC2 |
-| AWS EC2 | Instancia Docker con FastAPI |
-| AWS ACM | Certificado TLS para dominio custom |
-| AWS Route 53 | DNS hacia CloudFront |
-| MongoDB Atlas | Cluster M10 multi-AZ en us-east-1 |
-| GitHub Actions | CI/CD — test, build, deploy |
-| Docker Hub / ECR | Imagen del backend |
+| Vercel — Static Build | Hosting del bundle React (`frontend/`) |
+| Vercel — Serverless Function (Python) | FastAPI corriendo como función ASGI (`backend/api/index.py`) |
+| Vercel Edge Network | CDN, TLS, dominio custom, routing `/api/*` → función / resto → estático |
+| MongoDB Atlas | Cluster en la nube (network access abierto — ver §6, no hay IP fija de Vercel) |
+| GitHub Actions | CI — test backend/frontend en cada push/PR |
+| Vercel Git Integration | CD — build + deploy automático (`vercel.json`) en cada push a `main`, preview por PR |
 
 ---
 
@@ -437,7 +433,7 @@ settings = Settings()
 | Parámetro | Valor | Razón |
 |-----------|-------|-------|
 | Tier | M10 | Primer tier con réplica y backups |
-| Región | us-east-1 (N. Virginia) | Misma región que EC2 → latencia <1ms |
+| Región | us-east-1 (N. Virginia) | Misma región que la función serverless de Vercel (`iad1` por defecto) → menor latencia |
 | Réplica | 3 nodos (primario + 2 secundarios) | Disponibilidad + failover automático |
 | Backup | Continuo (point-in-time) | Recovery a cualquier minuto |
 | Encriptación | At-rest (AES-256) + In-transit (TLS 1.2) | Datos sensibles de emergencia |
@@ -467,7 +463,40 @@ Cada colección lleva un validator para garantizar integridad a nivel de base de
 
 ---
 
-## 6. Infraestructura AWS
+## 6. Infraestructura Vercel
+
+Un solo proyecto de Vercel enlazado al repo. `vercel.json` en la raíz define dos builds y el routing entre ellos — frontend y backend quedan bajo el **mismo dominio**, eliminando el problema de CORS que antes resolvía CloudFront como origen único.
+
+### `vercel.json` (raíz del repo)
+
+```json
+{
+  "version": 2,
+  "builds": [
+    { "src": "backend/api/index.py", "use": "@vercel/python" },
+    { "src": "frontend/package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "backend/api/index.py" },
+    { "src": "/(.*)", "dest": "/frontend/$1" }
+  ]
+}
+```
+
+### Entrypoint serverless (`backend/api/index.py`)
+
+Vercel's Python runtime necesita un archivo con una variable `app` (ASGI). Reexporta la app de FastAPI existente sin duplicar lógica:
+
+```python
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+from app.main import app  # noqa: E402
+```
+
+`requirements.txt` se sigue leyendo desde `backend/requirements.txt` — el builder de Python de Vercel busca el archivo en directorios padre del entrypoint.
 
 ### Diagrama de red
 
@@ -475,93 +504,30 @@ Cada colección lleva un validator para garantizar integridad a nivel de base de
 Internet
     │
     ▼
-Route 53 (ayudalog.com → CloudFront)
+Vercel Edge Network (dominio *.vercel.app o custom domain)
+    ├── Route: /api/*  → Serverless Function (Python — backend/api/index.py)
+    │                        └─ FastAPI app (Beanie + Motor)
     │
-    ▼
-CloudFront Distribution
-    ├── Behavior: /*          → S3 Origin (React SPA)
-    │       Cache: assets/* 1 año (hash en filename)
-    │       Cache: index.html  no-cache (siempre fresh)
-    │
-    └── Behavior: /api/*      → EC2 Origin (FastAPI)
-            Cache: disabled
-            Forward: headers Auth, Content-Type
-            Origin Protocol: HTTPS only
-    │
-    ├──────────────────────┐
-    ▼                      ▼
-S3 Bucket              EC2 (t3.small)
-(static website)       ┌─────────────────────────┐
-react build/           │ Nginx :443               │
-                       │   └─ proxy /api → :8000  │
-                       │                          │
-                       │ Docker container :8000   │
-                       │   Gunicorn (4 workers)   │
-                       │   └─ Uvicorn (async)     │
-                       │       └─ FastAPI app     │
-                       └──────────┬──────────────┘
-                                  │ IP Whitelist (VPC SG)
-                                  ▼
-                       MongoDB Atlas M10
-                       (Network Access → EC2 IP)
+    └── Route: /*      → Static Build (frontend/dist, generado con `vite build`)
+                                                  │
+                                                  ▼  TLS / Motor async
+                                       MongoDB Atlas
+                                       (Network Access: 0.0.0.0/0 —
+                                        Vercel no expone IP saliente fija)
 ```
 
-### Security Groups EC2
+### Consideraciones al pasar de EC2 a serverless
 
-| Regla | Puerto | Fuente | Descripción |
-|-------|--------|--------|-------------|
-| Inbound | 443 | CloudFront IP ranges | HTTPS desde CDN |
-| Inbound | 22 | Bastion IP / VPN | SSH deploy |
-| Outbound | 27017 | MongoDB Atlas CIDR | Driver connection |
-| Outbound | 443 | 0.0.0.0/0 | HTTPS saliente |
+Estas son las diferencias reales de comportamiento frente al modelo anterior (EC2 + Docker + Nginx), no solo de configuración:
 
-### Nginx como reverse proxy
-
-```nginx
-# /etc/nginx/sites-available/ayudalog
-server {
-    listen 443 ssl http2;
-    server_name api.ayudalog.com;
-
-    ssl_certificate     /etc/letsencrypt/live/api.ayudalog.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.ayudalog.com/privkey.pem;
-
-    location /api/ {
-        proxy_pass         http://127.0.0.1:8000;
-        proxy_http_version 1.1;
-        proxy_set_header   Host              $host;
-        proxy_set_header   X-Real-IP         $remote_addr;
-        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto $scheme;
-        proxy_read_timeout 60s;
-    }
-}
-```
-
-### Dockerfile backend
-
-```dockerfile
-FROM python:3.12-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY app/ ./app/
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-EXPOSE 8000
-
-CMD ["gunicorn", "app.main:app",
-     "--workers", "4",
-     "--worker-class", "uvicorn.workers.UvicornWorker",
-     "--bind", "0.0.0.0:8000",
-     "--timeout", "60",
-     "--access-logfile", "-"]
-```
+| Tema | Antes (EC2) | Ahora (Vercel) |
+|------|-------------|----------------|
+| IP saliente hacia Atlas | Fija (IP elástica de EC2) → whitelist específico | Dinámica, sin IP fija → Atlas Network Access debe permitir `0.0.0.0/0` (o usar el add-on de IP fija / integración oficial Atlas-Vercel si el plan lo permite). La seguridad recae en credenciales fuertes + TLS, no en el whitelist de IP |
+| Conexión Mongo | Un solo `AsyncIOMotorClient` de vida larga (proceso persistente) | El cliente se crea en el `lifespan` de FastAPI; se reutiliza mientras la instancia serverless siga "caliente", pero cada cold start vuelve a conectar — vigilar latencia y límite de conexiones concurrentes en Atlas |
+| Tiempo de ejecución | Sin límite práctico (proceso propio) | Límite de duración por invocación según plan de Vercel (Hobby: más restrictivo; Pro: mayor). Cuidado con endpoints que hagan operaciones largas |
+| Workers | Gunicorn con 4 workers fijos | Escalado horizontal automático por invocación — no hay concepto de "workers" a configurar |
+| CORS | Necesario porque CloudFront y EC2 podían diverger de dominio | Ya no es crítico: `/api/*` y el resto de rutas comparten el mismo dominio de Vercel |
+| Docker/Nginx | Pieza central del deploy | Deja de usarse en producción — `backend/Dockerfile` y `backend/docker-compose.yml` quedan solo para levantar Mongo/backend en local |
 
 ---
 
@@ -668,12 +634,11 @@ Implementar con `Depends(require_role("administrador"))` en FastAPI.
 
 ### Hardening
 
-- **CORS**: solo el dominio CloudFront en producción
+- **CORS**: mismo origen en producción (frontend y API comparten dominio de Vercel vía `vercel.json`); `CORS_ORIGINS` solo relevante para dev local
 - **Rate limiting**: `slowapi` en FastAPI — 60 req/min por IP en `/auth/login`
-- **MongoDB Atlas**: IP Whitelist a la IP elástica de EC2 únicamente
-- **S3**: bucket sin acceso público directo — solo CloudFront Origin Access Control (OAC)
-- **Secrets**: `AWS Secrets Manager` para `JWT_SECRET` y `MONGODB_URI` (no en `.env` en producción)
-- **Headers HTTP**: Nginx agrega `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`
+- **MongoDB Atlas**: sin IP fija que whitelistear (Vercel serverless no expone una IP saliente estable) — Network Access debe permitir `0.0.0.0/0`; la seguridad depende de credenciales fuertes, usuario de BD con permisos mínimos y rotación periódica
+- **Secrets**: variables de entorno del proyecto en Vercel (Project Settings → Environment Variables, cifradas en reposo) para `JWT_SECRET` y `MONGODB_URI` — nunca en archivos `.env` commiteados
+- **Headers HTTP**: agregar `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options` vía middleware de FastAPI (ya no hay Nginx en el flujo de producción)
 
 ---
 
@@ -731,7 +696,9 @@ FastAPI recibe POST /api/recepciones
 
 ## 10. Configuración de entornos
 
-### Variables de entorno backend (`.env`)
+### Variables de entorno backend
+
+En local, `backend/.env` (gitignored — ver `.env.example` como plantilla). En Vercel, las mismas claves se configuran en **Project Settings → Environment Variables** (no se commitea ningún `.env`):
 
 ```bash
 # .env.example — NO commitear .env con valores reales
@@ -739,19 +706,23 @@ MONGODB_URI=mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/
 MONGODB_DB=ayuda_logistica
 JWT_SECRET=cambia_esto_por_32_chars_minimo_en_prod
 JWT_EXPIRE_MIN=480
-CORS_ORIGINS=["https://tu-dominio.cloudfront.net"]
+CORS_ORIGINS=["http://localhost:5173"]
 ENVIRONMENT=development
 ```
 
-### Variables de entorno frontend (`.env`)
+En producción `ENVIRONMENT=production` y `CORS_ORIGINS` puede dejarse vacío o restringido, ya que `/api/*` y el frontend comparten dominio.
+
+### Variables de entorno frontend
+
+Como `/api/*` se enruta al mismo dominio (ver `vercel.json`), `VITE_API_URL` en producción es una ruta relativa, no un dominio distinto:
 
 ```bash
 # .env.local
 VITE_API_URL=http://localhost:8000
 VITE_APP_NAME=Ayuda Logística BOG
 
-# .env.production
-VITE_API_URL=https://api.ayudalog.com
+# Producción (configurado en Vercel, o relativo si no se define)
+VITE_API_URL=/api
 ```
 
 ### Docker Compose (desarrollo local)
@@ -788,35 +759,32 @@ volumes:
 
 ## 11. Pipeline CI/CD
 
+CI (tests) y CD (deploy) quedan separados: GitHub Actions solo valida; Vercel despliega automáticamente al detectar push vía su integración de Git (no requiere un job de deploy manual).
+
 ```
-Push a main / PR merged
+Push a main / PR abierto
         │
-        ▼
-┌─────────────────────────────────────────────────────┐
-│  GitHub Actions — .github/workflows/deploy.yml      │
-│                                                     │
-│  JOB 1: test-backend                               │
-│    ├─ python 3.12                                   │
-│    ├─ pip install -r requirements-dev.txt           │
-│    ├─ pytest --cov=app tests/                       │
-│    └─ Upload coverage report                        │
-│                                                     │
-│  JOB 2: test-frontend (parallel)                    │
-│    ├─ node 20                                       │
-│    ├─ npm ci                                        │
-│    └─ npm run test && npm run build                 │
-│                                                     │
-│  JOB 3: deploy-backend (needs: test-backend)        │
-│    ├─ docker build -t ayudalog-api .                │
-│    ├─ docker push ECR/ayudalog-api:$SHA             │
-│    └─ SSH EC2 → docker pull + docker run (blue/green)│
-│                                                     │
-│  JOB 4: deploy-frontend (needs: test-frontend)      │
-│    ├─ npm run build                                 │
-│    ├─ aws s3 sync dist/ s3://ayudalog-frontend/     │
-│    └─ aws cloudfront create-invalidation --paths "/*"│
-└─────────────────────────────────────────────────────┘
+        ├──────────────────────────────┐
+        ▼                              ▼
+┌───────────────────────────┐  ┌─────────────────────────────────────┐
+│ GitHub Actions — CI       │  │ Vercel Git Integration               │
+│ .github/workflows/ci.yml  │  │                                       │
+│                           │  │  PR abierto → Preview Deployment       │
+│ JOB 1: test-backend       │  │    build backend/api (Python)          │
+│  ├─ python 3.12            │  │    build frontend (vite build)         │
+│  ├─ pip install -r         │  │    URL única para revisar el cambio    │
+│  │   requirements-dev.txt  │  │                                       │
+│  ├─ pytest --cov=app tests/│  │  Merge a main → Production Deployment  │
+│  └─ Upload coverage report │  │    mismo build, publicado en el        │
+│                           │  │    dominio de producción               │
+│ JOB 2: test-frontend       │  │                                       │
+│  ├─ node 20                │  │  Variables de entorno tomadas de       │
+│  ├─ npm ci                 │  │  Project Settings (no del repo)        │
+│  └─ npm run test           │  │                                       │
+└───────────────────────────┘  └─────────────────────────────────────┘
 ```
+
+El merge a `main` solo debería ocurrir si CI está en verde — Vercel no bloquea el deploy si CI falla salvo que se configure explícitamente como *required check* en la protección de la rama.
 
 ---
 
@@ -838,9 +806,10 @@ Push a main / PR merged
 **Decisión:** `responsable_nombre`, `carga_categorias`, `total_cajas` se persisten como snapshot  
 **Razón:** En un sistema de emergencia, la inmutabilidad del historial es crítica. Si un voluntario cambia su nombre, los registros históricos deben conservar el nombre original. Prioridad: auditoría > consistencia eventual.
 
-### ADR-005 — S3 + CloudFront sobre Amplify/Vercel
-**Decisión:** S3 + CloudFront manual  
-**Razón:** La infraestructura ya es AWS. CloudFront como único origen para frontend y proxy de API elimina problemas de CORS en producción (todo va al mismo dominio). Control total sobre headers de seguridad y caché.
+### ADR-005 (revisado) — Vercel sobre AWS S3 + CloudFront + EC2
+**Decisión:** Vercel (frontend estático + backend FastAPI como función serverless Python), reemplaza la decisión original de AWS.  
+**Razón:** Prioridad de velocidad de entrega sobre control de infraestructura — proyecto de ayuda humanitaria con ventana de tiempo corta. Un solo `vercel.json` define build y routing de ambas piezas bajo el mismo dominio, logrando el mismo objetivo que perseguía la decisión original (mismo origen → sin CORS) sin operar EC2/Nginx/ECR a mano.  
+**Trade-offs aceptados:** sin IP saliente fija hacia MongoDB Atlas (Network Access debe abrirse a `0.0.0.0/0`), cold starts en la función Python, límite de duración por invocación según el plan de Vercel, y menor control sobre headers/caché comparado con Nginx + CloudFront manual. Ver detalle en [§6](#6-infraestructura-vercel).
 
 ### ADR-006 — TanStack Query sobre Redux/Context
 **Decisión:** TanStack Query para server state, Zustand solo para sesión  

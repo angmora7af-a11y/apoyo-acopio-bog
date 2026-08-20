@@ -10,13 +10,12 @@ import { useCrearDonacion } from './useDonaciones'
 import { useSessionStore } from '@/store/sessionStore'
 
 const schema = z.object({
-  acopio:      z.string().min(2, 'Requerido'),
-  fecha_hora:  z.string().min(1, 'Requerido'),
-  hora:        z.string().optional(),
-  destino:     z.string().optional(),
-  comentarios: z.string().optional(),
-  categorias:  z.any(),
-  listo:       z.boolean().default(false),
+  fecha_hora:      z.string().min(1, 'Requerido'),
+  hora:            z.string().optional(),
+  donante_nombre:  z.string().min(2, 'Requerido'),
+  receptor_nombre: z.string().min(2, 'Requerido'),
+  categorias:      z.any(),
+  comentarios:     z.string().optional(),
 })
 type Form = z.infer<typeof schema>
 
@@ -33,10 +32,10 @@ export function NuevaDonacionModal({ open, onClose }: { open: boolean; onClose: 
   const { register, handleSubmit, control, reset, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: {
-      fecha_hora: nowDate(),
-      hora:       nowTime(),
-      categorias: EMPTY_CATEGORIAS,
-      listo:      false,
+      fecha_hora:      nowDate(),
+      hora:            nowTime(),
+      receptor_nombre: session?.nombre ?? '',
+      categorias:      EMPTY_CATEGORIAS,
     },
   })
 
@@ -44,12 +43,11 @@ export function NuevaDonacionModal({ open, onClose }: { open: boolean; onClose: 
     const dt = `${data.fecha_hora}T${data.hora ?? '00:00'}:00`
     crear.mutate(
       {
-        acopio:      data.acopio,
-        fecha_hora:  dt,
-        destino:     data.destino,
-        comentarios: data.comentarios,
-        categorias:  data.categorias,
-        estado:      data.listo ? 'listo' : 'pendiente',
+        fecha_hora:      dt,
+        donante_nombre:  data.donante_nombre,
+        receptor_nombre: data.receptor_nombre,
+        categorias:      data.categorias,
+        comentarios:     data.comentarios,
       },
       { onSuccess: () => { reset(); onClose() } },
     )
@@ -58,27 +56,27 @@ export function NuevaDonacionModal({ open, onClose }: { open: boolean; onClose: 
   return (
     <Modal open={open} onClose={onClose} title="📦 Nueva Donación">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* Cabecera */}
+        {/* Fecha y hora */}
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Datos de cabecera</p>
-          <Input label="Centro de acopio" placeholder="Ej: Centro Norte, Suba..."
-            {...register('acopio')} error={errors.acopio?.message} />
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 text-sm text-gray-700">
-            <span className="text-xs font-medium text-gray-500 block mb-0.5">Registrado por</span>
-            <span className="font-semibold">{session?.nombre}</span>
-          </div>
-
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fecha y hora</p>
           <div className="grid grid-cols-2 gap-3">
             <Input label="Fecha" type="date" {...register('fecha_hora')} error={errors.fecha_hora?.message} />
             <Input label="Hora" type="time" {...register('hora')} />
           </div>
-          <Input label="Destino asignado (opcional)" placeholder="Ciudad o zona" {...register('destino')} />
         </div>
 
-        {/* Categorías */}
+        {/* Donante y receptor */}
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Categorías de kits / cajas</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Donante y receptor</p>
+          <Input label="Nombre de quien dona" placeholder="Nombre completo"
+            {...register('donante_nombre')} error={errors.donante_nombre?.message} />
+          <Input label="Nombre de quien recibe" placeholder="Nombre completo"
+            {...register('receptor_nombre')} error={errors.receptor_nombre?.message} />
+        </div>
+
+        {/* Set entregado */}
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Qué se entregó</p>
           <Controller
             name="categorias"
             control={control}
@@ -88,22 +86,15 @@ export function NuevaDonacionModal({ open, onClose }: { open: boolean; onClose: 
           />
         </div>
 
-        {/* Detalles */}
+        {/* Notas */}
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Detalles adicionales</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Notas</p>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">Comentarios</label>
             <textarea {...register('comentarios')} rows={2}
               placeholder="Observaciones, notas especiales..."
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm resize-none outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
           </div>
-          <label className="flex items-center gap-2.5 cursor-pointer p-2.5 bg-white border border-gray-200 rounded-lg">
-            <input type="checkbox" {...register('listo')}
-              className="w-4 h-4 accent-blue-600 cursor-pointer" />
-            <span className="text-sm font-medium text-gray-700">
-              Marcar como <strong>Listo para enviar</strong>
-            </span>
-          </label>
         </div>
 
         <Button type="submit" full loading={crear.isPending}>Guardar donación</Button>

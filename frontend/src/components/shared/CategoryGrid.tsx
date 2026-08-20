@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 import { useState, useRef } from 'react'
 import { CATEGORIES, CUSTOM_ICON, customCategories } from '@/utils/categorias'
+=======
+import { CATEGORIES } from '@/utils/categorias'
+>>>>>>> 6454f18a99171ebb1221c985a1661387fb2ec240
 import type { CategoriasKits } from '@/types'
 
 interface Props {

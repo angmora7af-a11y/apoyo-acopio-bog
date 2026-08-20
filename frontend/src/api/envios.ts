@@ -1,5 +1,5 @@
 import client from './client'
-import type { Envio, TipoTransporte } from '@/types'
+import type { Envio, TipoTransporte, CategoriasKits } from '@/types'
 
 export interface CrearEnvioPayload {
   tipo_transporte:    TipoTransporte
@@ -11,7 +11,7 @@ export interface CrearEnvioPayload {
   fecha_hora:         string
   ciudad_origen:      string
   ciudad_destino:     string
-  donaciones_ids:     string[]
+  categorias:         CategoriasKits
 }
 
 export async function getEnvios(params?: {

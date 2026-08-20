@@ -46,7 +46,7 @@ export function EnviosPage() {
                 </p>
                 {e.empresa && <p className="text-xs text-gray-400 mt-0.5">{e.empresa} · {e.responsable_nombre}</p>}
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {e.donaciones_ids.join(', ')} · <strong>{e.total_cajas} cajas</strong>
+                  <strong>{e.total_cajas}</strong> cajas
                 </p>
                 <CatPills cats={e.carga_categorias} />
                 <div className="mt-2"><Badge estado={e.estado} /></div>

@@ -7,7 +7,6 @@ import { login } from '@/api/voluntarios'
 import { useSessionStore } from '@/store/sessionStore'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import type { Rol } from '@/types'
 
 const schema = z.object({
   nombre:    z.string().min(2, 'Mínimo 2 caracteres'),

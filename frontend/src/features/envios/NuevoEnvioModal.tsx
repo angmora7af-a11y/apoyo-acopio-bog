@@ -1,15 +1,13 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { CatPills } from '@/components/shared/CatPills'
-import { useDonaciones } from '@/features/donaciones/useDonaciones'
+import { CategoryGrid } from '@/components/shared/CategoryGrid'
 import { useCrearEnvio } from './useEnvios'
-import { CATEGORIES, sumarCategorias, totalCajas, EMPTY_CATEGORIAS } from '@/utils/categorias'
-import type { Donacion, TipoTransporte } from '@/types'
+import { EMPTY_CATEGORIAS } from '@/utils/categorias'
+import type { TipoTransporte } from '@/types'
 
 const schema = z.object({
   tipo_transporte:    z.string(),
@@ -22,6 +20,7 @@ const schema = z.object({
   hora:               z.string().optional(),
   ciudad_origen:      z.string().min(2, 'Requerido'),
   ciudad_destino:     z.string().min(2, 'Requerido'),
+  categorias:         z.any(),
 })
 type Form = z.infer<typeof schema>
 
@@ -32,25 +31,17 @@ function nowTime() {
 }
 
 export function NuevoEnvioModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { data: donaciones = [] } = useDonaciones({ estado: 'listo' })
   const crear = useCrearEnvio()
-  const [selIds, setSelIds] = useState<string[]>([])
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<Form>({
+  const { register, handleSubmit, control, reset, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
-    defaultValues: { tipo_transporte: 'camion', fecha_hora: nowDate(), hora: nowTime() },
+    defaultValues: {
+      tipo_transporte: 'camion',
+      fecha_hora:      nowDate(),
+      hora:            nowTime(),
+      categorias:      EMPTY_CATEGORIAS,
+    },
   })
-
-  // Resumen de carga seleccionada
-  const selDons = donaciones.filter((d) => selIds.includes(d.id))
-  const cargaAgg = selDons.reduce(
-    (acc, d) => sumarCategorias(acc, d.categorias),
-    EMPTY_CATEGORIAS,
-  )
-  const totalSel = selDons.reduce((s, d) => s + d.total_cajas, 0)
-
-  const toggleDon = (id: string) =>
-    setSelIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
 
   const onSubmit = (data: Form) => {
     const dt = `${data.fecha_hora}T${data.hora ?? '00:00'}:00`
@@ -65,9 +56,9 @@ export function NuevoEnvioModal({ open, onClose }: { open: boolean; onClose: () 
         fecha_hora:         dt,
         ciudad_origen:      data.ciudad_origen,
         ciudad_destino:     data.ciudad_destino,
-        donaciones_ids:     selIds,
+        categorias:         data.categorias,
       },
-      { onSuccess: () => { reset(); setSelIds([]); onClose() } },
+      { onSuccess: () => { reset(); onClose() } },
     )
   }
 
@@ -120,41 +111,17 @@ export function NuevoEnvioModal({ open, onClose }: { open: boolean; onClose: () 
           </div>
         </div>
 
-        {/* Asociar carga */}
+        {/* Conteo de carga */}
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Asociar carga</p>
-          <p className="text-xs text-gray-400">Selecciona las donaciones listas para enviar.</p>
-          {!donaciones.length ? (
-            <p className="text-sm text-gray-400 italic">Sin donaciones marcadas como "Listo para enviar"</p>
-          ) : (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              {donaciones.map((d) => (
-                <label key={d.id}
-                  className="flex gap-2.5 items-start p-3 border-b border-gray-100 last:border-b-0 cursor-pointer hover:bg-blue-50 transition">
-                  <input type="checkbox" checked={selIds.includes(d.id)}
-                    onChange={() => toggleDon(d.id)}
-                    className="mt-0.5 w-4 h-4 accent-blue-600 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{d.codigo} — {d.acopio}</p>
-                    <p className="text-xs text-gray-500">{d.total_cajas} cajas · {d.responsable_nombre}</p>
-                    <CatPills cats={d.categorias} />
-                  </div>
-                </label>
-              ))}
-            </div>
-          )}
-
-          {selDons.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
-              <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">
-                Resumen de carga seleccionada
-              </p>
-              <CatPills cats={cargaAgg} />
-              <p className="text-sm font-bold text-blue-700">
-                📦 Total: {totalSel} cajas en {selDons.length} donación(es)
-              </p>
-            </div>
-          )}
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Conteo de carga en el camión</p>
+          <p className="text-xs text-gray-400">Cuenta las cajas por categoría que se están subiendo a este camión.</p>
+          <Controller
+            name="categorias"
+            control={control}
+            render={({ field }) => (
+              <CategoryGrid value={field.value} onChange={field.onChange} />
+            )}
+          />
         </div>
 
         <Button type="submit" full loading={crear.isPending}>Registrar envío</Button>
