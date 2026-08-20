@@ -8,11 +8,7 @@ export function CatPills({ cats }: { cats?: CategoriasKits }) {
   if (!known.length && !extras.length) return null
   return (
     <div className="flex flex-wrap gap-1 mt-1.5">
-<<<<<<< HEAD
       {known.map(({ key, icon }) => (
-=======
-      {active.map(({ key, icon }) => (
->>>>>>> 6454f18a99171ebb1221c985a1661387fb2ec240
         <span
           key={key}
           className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800"

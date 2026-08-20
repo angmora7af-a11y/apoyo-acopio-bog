@@ -55,12 +55,6 @@ export function DashboardPage() {
   const totalCajasE = filteredE.reduce((s, e) => s + e.total_cajas, 0)
   const totalCajasR = filteredR.reduce((s, r) => s + (r.total_cajas ?? 0), 0)
 
-  const estadosD = useMemo(() => {
-    const counts: Record<string, number> = {}
-    filteredD.forEach((d) => { counts[d.estado] = (counts[d.estado] ?? 0) + 1 })
-    return counts
-  }, [filteredD])
-
   const catTotals = useMemo(() => {
     const totals: Record<string, number> = {}
     filteredD.forEach((d) => {
@@ -74,13 +68,6 @@ export function DashboardPage() {
   const knownCatKeys  = new Set(CATEGORIES.map((c) => c.key))
   const activeCats    = CATEGORIES.filter((c) => (catTotals[c.key] ?? 0) > 0)
   const activeCustoms = Object.keys(catTotals).filter((k) => !knownCatKeys.has(k) && catTotals[k] > 0)
-
-  const ESTADO_LABEL: Record<string, { label: string; color: string }> = {
-    pendiente:   { label: 'Pendiente',       color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-    listo:       { label: 'Listo para enviar', color: 'bg-blue-100 text-blue-800 border-blue-200' },
-    en_transito: { label: 'En tránsito',     color: 'bg-violet-100 text-violet-800 border-violet-200' },
-    entregado:   { label: 'Entregado',        color: 'bg-green-100 text-green-800 border-green-200' },
-  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -126,25 +113,6 @@ export function DashboardPage() {
             <StatCard label="Recepciones" count={filteredR.length} cajas={totalCajasR} color="green" />
           </div>
 
-          {/* Estado de donaciones */}
-          {filteredD.length > 0 && (
-            <Section title="Donaciones por estado">
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(estadosD).map(([estado, count]) => {
-                  const cfg = ESTADO_LABEL[estado] ?? { label: estado, color: 'bg-gray-100 text-gray-700 border-gray-200' }
-                  return (
-                    <span
-                      key={estado}
-                      className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border font-medium ${cfg.color}`}
-                    >
-                      {cfg.label}
-                      <span className="font-bold">{count}</span>
-                    </span>
-                  )
-                })}
-              </div>
-            </Section>
-          )}
 
           {/* Categorías */}
           {(activeCats.length > 0 || activeCustoms.length > 0) && (
