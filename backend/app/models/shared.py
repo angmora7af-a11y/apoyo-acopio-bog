@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EstadoDonacion(str, Enum):
@@ -28,6 +28,8 @@ class RolUsuario(str, Enum):
 
 
 class CategoriasKits(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     aseo:         int = Field(default=0, ge=0)
     alimentos:    int = Field(default=0, ge=0)
     mascotas:     int = Field(default=0, ge=0)
@@ -38,19 +40,10 @@ class CategoriasKits(BaseModel):
     ropa:         int = Field(default=0, ge=0)
 
     def total(self) -> int:
-        return (
-            self.aseo + self.alimentos + self.mascotas + self.medicamentos
-            + self.insumos + self.rescate + self.refugio + self.ropa
-        )
+        return sum(self.model_dump().values())
 
     def sumar(self, other: "CategoriasKits") -> "CategoriasKits":
-        return CategoriasKits(
-            aseo=self.aseo + other.aseo,
-            alimentos=self.alimentos + other.alimentos,
-            mascotas=self.mascotas + other.mascotas,
-            medicamentos=self.medicamentos + other.medicamentos,
-            insumos=self.insumos + other.insumos,
-            rescate=self.rescate + other.rescate,
-            refugio=self.refugio + other.refugio,
-            ropa=self.ropa + other.ropa,
-        )
+        a = self.model_dump()
+        b = other.model_dump()
+        merged = {k: a.get(k, 0) + b.get(k, 0) for k in set(a) | set(b)}
+        return CategoriasKits(**merged)

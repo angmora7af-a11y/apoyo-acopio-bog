@@ -12,6 +12,7 @@ export interface CategoriasKits {
   rescate:      number
   refugio:      number
   ropa:         number
+  [key: string]: number
 }
 
 export interface Voluntario {

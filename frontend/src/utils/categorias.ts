@@ -1,7 +1,7 @@
 import type { CategoriasKits } from '@/types'
 
 export interface CategoriaConfig {
-  key:  keyof CategoriasKits
+  key:  string
   icon: string
   name: string
 }
@@ -17,6 +17,10 @@ export const CATEGORIES: CategoriaConfig[] = [
   { key: 'ropa',         icon: '👕', name: 'Ropa' },
 ]
 
+const KNOWN_KEYS = new Set(CATEGORIES.map((c) => c.key))
+
+export const CUSTOM_ICON = '📦'
+
 export const EMPTY_CATEGORIAS: CategoriasKits = {
   aseo: 0, alimentos: 0, mascotas: 0, medicamentos: 0,
   insumos: 0, rescate: 0, refugio: 0, ropa: 0,
@@ -27,14 +31,12 @@ export function totalCajas(c: CategoriasKits): number {
 }
 
 export function sumarCategorias(a: CategoriasKits, b: CategoriasKits): CategoriasKits {
-  return {
-    aseo:         a.aseo + b.aseo,
-    alimentos:    a.alimentos + b.alimentos,
-    mascotas:     a.mascotas + b.mascotas,
-    medicamentos: a.medicamentos + b.medicamentos,
-    insumos:      a.insumos + b.insumos,
-    rescate:      a.rescate + b.rescate,
-    refugio:      a.refugio + b.refugio,
-    ropa:         a.ropa + b.ropa,
-  }
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+  const result: CategoriasKits = { ...EMPTY_CATEGORIAS }
+  keys.forEach((k) => { result[k] = (a[k] ?? 0) + (b[k] ?? 0) })
+  return result
+}
+
+export function customCategories(c: CategoriasKits): string[] {
+  return Object.keys(c).filter((k) => !KNOWN_KEYS.has(k))
 }

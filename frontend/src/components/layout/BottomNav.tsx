@@ -1,16 +1,23 @@
 import { NavLink } from 'react-router-dom'
+import { useSessionStore } from '@/store/sessionStore'
 
-const LINKS = [
+const BASE_LINKS = [
   { to: '/',            label: 'Inicio',      icon: HomeIcon },
   { to: '/donaciones',  label: 'Donaciones',  icon: BoxIcon },
   { to: '/envios',      label: 'Envíos',      icon: SendIcon },
   { to: '/recepciones', label: 'Recepciones', icon: InboxIcon },
 ]
 
+const ADMIN_LINK = { to: '/dashboard', label: 'Dashboard', icon: ChartIcon }
+
 export function BottomNav() {
+  const session = useSessionStore((s) => s.session)
+  const isAdmin = session?.rol === 'administrador'
+  const links = isAdmin ? [...BASE_LINKS, ADMIN_LINK] : BASE_LINKS
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex">
-      {LINKS.map(({ to, label, icon: Icon }) => (
+      {links.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
@@ -60,6 +67,14 @@ function InboxIcon({ className }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
       <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
       <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </svg>
+  )
+}
+function ChartIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+      <line x1="2" y1="20" x2="22" y2="20" />
     </svg>
   )
 }

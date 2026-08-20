@@ -8,6 +8,7 @@ import { HomePage } from '@/features/home/HomePage'
 import { DonacionesPage } from '@/features/donaciones/DonacionesPage'
 import { EnviosPage } from '@/features/envios/EnviosPage'
 import { RecepcionesPage } from '@/features/recepciones/RecepcionesPage'
+import { DashboardPage } from '@/features/dashboard/DashboardPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,6 +19,7 @@ const queryClient = new QueryClient({
 function ProtectedLayout() {
   const session = useSessionStore((s) => s.session)
   if (!session) return <Navigate to="/login" replace />
+  const isAdmin = session.rol === 'administrador'
   return (
     <div className="min-h-screen bg-gray-100 pb-16">
       <TopBar />
@@ -26,6 +28,7 @@ function ProtectedLayout() {
         <Route path="/donaciones"  element={<DonacionesPage />} />
         <Route path="/envios"      element={<EnviosPage />} />
         <Route path="/recepciones" element={<RecepcionesPage />} />
+        {isAdmin && <Route path="/dashboard" element={<DashboardPage />} />}
         <Route path="*"            element={<Navigate to="/" replace />} />
       </Routes>
       <BottomNav />
